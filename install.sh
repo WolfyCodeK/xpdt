@@ -178,6 +178,8 @@ info "platform $PLATFORM/$ARCH   prefix $PREFIX   repo $REPO_DIR"
 if [ "$DO_TOOLS" = 1 ]; then
   step "installing pinned tools"
   install_ripgrep; install_bat; install_fzf; install_nvim; install_xplr
+  # xpdt is the command this setup goes by; expose it beside the xplr binary
+  if [ -e "$BIN_DIR/xplr" ]; then relink xplr "$BIN_DIR/xpdt"; info "xpdt -> xplr (launch command)"; fi
 fi
 if [ "$DO_CONFIG" = 1 ]; then
   step "linking configs into ~/.config"
@@ -197,4 +199,4 @@ case ":$ORIG_PATH:" in
   *":$BIN_DIR:"*) : ;;
   *) printf '\n'; warn "add $BIN_DIR to your PATH:  export PATH=\"$BIN_DIR:\$PATH\"" ;;
 esac
-printf '\nDone. Set a Nerd Font as your terminal font, then run: xplr\n'
+printf '\nDone. Set a Nerd Font as your terminal font, then run: xpdt\n'
