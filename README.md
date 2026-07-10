@@ -46,6 +46,9 @@ terminal font so the icons render. Re-running is safe and idempotent.
 
 Flags: `--prefix DIR`, `--tools-only`, `--config-only`, `--no-nvim-bootstrap`.
 
+Once it is on your `PATH`, start it with **`xpdt`** (a thin alias for the pinned
+`xplr` binary, so `xplr` still works too).
+
 ### Windows (WSL2)
 
 xplr publishes no native Windows build and the config is POSIX-shell based, so
