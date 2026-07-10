@@ -62,6 +62,10 @@ Once it is on your `PATH`, start the customised setup with **`xpdt`**. Plain
 for a one-screen summary of the setup (it then prints xplr's own `--help`); all
 xplr flags pass straight through.
 
+xpdt is versioned independently of the xplr engine (source of truth: the
+[`VERSION`](VERSION) file, git-tagged `v<version>`). `xpdt --version` prints both,
+for example `xpdt 1.0.0 (xplr 1.1.0)`, while `xplr --version` reports xplr alone.
+
 ### Windows (WSL2)
 
 xplr publishes no native Windows build and the config is POSIX-shell based, so
