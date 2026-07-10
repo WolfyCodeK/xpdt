@@ -17,7 +17,7 @@ case "$MODE" in
     DIFF0="git -C \"$ROOT\" diff -U0 -- \"$FILE\"" ;;
 esac
 [ -z "$AFTER" ] && [ -z "$BEFORE" ] && exit 0
-X="$HOME/.config/xplr"
+X="$HOME/.config/xpdt"
 COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
 [ -z "$COLS" ] && COLS=100

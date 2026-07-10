@@ -4,7 +4,7 @@ DIR="${XPLR_DIR:-${XPLR_FOCUS_PATH:-$PWD}}"
 ROOT="$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)"
 [ -z "$ROOT" ] && exit 0
 
-X="$HOME/.config/xplr"
+X="$HOME/.config/xpdt"
 LIST="sh $X/git-changes-list.sh '$ROOT'"
 
 while : ; do

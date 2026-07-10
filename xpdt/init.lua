@@ -21,7 +21,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key[";"] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["d"] = {
   help = "delete (2 digit code)",
   messages = {
-    { BashExec = "sh \"$HOME/.config/xplr/delete.sh\"" },
+    { BashExec = "sh \"$HOME/.config/xpdt/delete.sh\"" },
     "ExplorePwdAsync",
   }
 }
@@ -29,7 +29,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["d"] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["a"] = {
   help = "create file (2 digit code)",
   messages = {
-    { BashExec = "sh \"$HOME/.config/xplr/file-op.sh\" newfile" },
+    { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" newfile" },
     "ExplorePwdAsync",
   }
 }
@@ -37,7 +37,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["a"] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["f"] = {
   help = "create folder (2 digit code)",
   messages = {
-    { BashExec = "sh \"$HOME/.config/xplr/file-op.sh\" newfolder" },
+    { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" newfolder" },
     "ExplorePwdAsync",
   }
 }
@@ -45,7 +45,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["f"] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["m"] = {
   help = "move/rename (2 digit code)",
   messages = {
-    { BashExec = "sh \"$HOME/.config/xplr/file-op.sh\" move" },
+    { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" move" },
     "ExplorePwdAsync",
   }
 }
@@ -53,7 +53,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["m"] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["g"] = {
   help = "git menu",
   messages = {
-    { BashExec = "sh \"$HOME/.config/xplr/git-menu.sh\"" },
+    { BashExec = "sh \"$HOME/.config/xpdt/git-menu.sh\"" },
     "ExplorePwdAsync",
   }
 }
@@ -61,7 +61,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["g"] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-h"] = {
   help = "neovim cheat sheet",
   messages = {
-    { BashExec = "sh \"$HOME/.config/xplr/nvim-cheatsheet.sh\"" },
+    { BashExec = "sh \"$HOME/.config/xpdt/nvim-cheatsheet.sh\"" },
   }
 }
 
@@ -73,7 +73,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["right"] = {
         if [ -d "$XPLR_FOCUS_PATH" ]; then
           echo 'Enter' >> "${XPLR_PIPE_MSG_IN:?}"
         else
-          "$XPLR" -m 'BashExec: %q' "sh $HOME/.config/xplr/preview-file.sh"
+          "$XPLR" -m 'BashExec: %q' "sh $HOME/.config/xpdt/preview-file.sh"
         fi
       ]===]
     }
@@ -85,7 +85,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
   messages = {
     {
       BashExec = [===[
-        X="$HOME/.config/xplr"
+        X="$HOME/.config/xpdt"
         SF="$X/.search-scope"; [ -f "$SF" ] || echo here > "$SF"
         HERE="$(pwd)"; ROOT="${XPLR_INITIAL_PWD:-$HERE}"
         GEN="sh $X/search.sh files '$SF' '$HERE' '$ROOT'"
@@ -93,7 +93,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
           --header="$(sh $X/scope.sh header "$SF")" \
           --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GEN" \
           --bind 'left:abort' \
-          --bind 'right:execute(XPLR_FOCUS_PATH={} sh "$HOME/.config/xplr/preview-file.sh")' \
+          --bind 'right:execute(XPLR_FOCUS_PATH={} sh "$HOME/.config/xpdt/preview-file.sh")' \
           --bind 'enter:accept')
         if [ -n "$FILE" ]; then
           echo 'ResetNodeFilters' >> "${XPLR_PIPE_MSG_IN:?}"
@@ -110,7 +110,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
   messages = {
     {
       BashExec = [===[
-        X="$HOME/.config/xplr"
+        X="$HOME/.config/xpdt"
         SF="$X/.search-scope"; [ -f "$SF" ] || echo here > "$SF"
         HERE="$(pwd)"; ROOT="${XPLR_INITIAL_PWD:-$HERE}"
         GENQ="sh $X/search.sh content '$SF' '$HERE' '$ROOT'"
@@ -120,7 +120,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
             --bind "change:reload:sleep 0.1; $GENQ {q}" \
             --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
             --bind 'left:abort' \
-            --bind 'right:execute(XPLR_FOCUS_PATH={1} XPLR_PREVIEW_LINE={2} sh "$HOME/.config/xplr/preview-file.sh")' \
+            --bind 'right:execute(XPLR_FOCUS_PATH={1} XPLR_PREVIEW_LINE={2} sh "$HOME/.config/xpdt/preview-file.sh")' \
             --bind 'enter:accept' \
             --delimiter : \
             --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null || cat -n {1}' \
@@ -307,7 +307,7 @@ local function git_changes_body(root)
 end
 
 local function batch_git_authors(dirabs, root)
-  local handle = io.popen('sh "' .. os.getenv("HOME") .. '/.config/xplr/git-authors.sh" "' .. dirabs .. '" 2>/dev/null')
+  local handle = io.popen('sh "' .. os.getenv("HOME") .. '/.config/xpdt/git-authors.sh" "' .. dirabs .. '" 2>/dev/null')
   if not handle then
     return
   end
@@ -374,13 +374,13 @@ end
 
 xplr.fn.custom.open_git_browser = function(app)
   return {
-    { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xplr/git-log-browser.sh\"" },
+    { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xpdt/git-log-browser.sh\"" },
   }
 end
 
 xplr.fn.custom.open_changes_browser = function(app)
   return {
-    { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xplr/git-changes-browser.sh\"" },
+    { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xpdt/git-changes-browser.sh\"" },
   }
 end
 
@@ -573,7 +573,7 @@ xplr.fn.custom.render_layout = function(ctx)
   }
 end
 
-dofile(os.getenv("HOME") .. "/.config/xplr/theme.lua")
+dofile(os.getenv("HOME") .. "/.config/xpdt/theme.lua")
 
 return {
   on_load = {
