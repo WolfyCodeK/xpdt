@@ -1,0 +1,7 @@
+.DS_Store
+._*
+.search-scope
+*.swp
+
+# One-time bootstrap instructions for publishing this repo; not part of the config
+SETUP.md
