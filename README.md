@@ -58,7 +58,9 @@ Flags: `--prefix DIR`, `--tools-only`, `--config-only`, `--no-nvim-bootstrap`.
 
 Once it is on your `PATH`, start the customised setup with **`xpdt`**. Plain
 **`xplr`** remains the stock file manager - the installer never writes a
-`~/.config/xplr`, so xplr keeps its out-of-the-box defaults.
+`~/.config/xplr`, so xplr keeps its out-of-the-box defaults. Run `xpdt --help`
+for a one-screen summary of the setup (it then prints xplr's own `--help`); all
+xplr flags pass straight through.
 
 ### Windows (WSL2)
 
