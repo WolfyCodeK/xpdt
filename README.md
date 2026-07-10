@@ -6,14 +6,20 @@ git client and code browser, paired with a matching Neovim config. The two share
 a Monokai palette and hand off to each other - `ctrl-e` in a file preview opens
 Neovim on the exact line.
 
-- **`xplr/`** goes in `~/.config/xplr`. A customised xplr config: git changes and
-  log browsers, an inline diff viewer with change-to-change navigation, a
+The custom config installs alongside stock xplr rather than replacing it, so you
+get two commands:
+
+- **`xpdt`** launches the customised setup (it runs `xplr -c ~/.config/xpdt/init.lua`).
+- **`xplr`** stays completely stock - the plain, out-of-the-box file manager.
+
+- **`xpdt/`** goes in `~/.config/xpdt`. The customised xplr config: git changes
+  and log browsers, an inline diff viewer with change-to-change navigation, a
   syntax-highlighted file preview with search and clean line-range copy,
   code-gated file create/delete/move, a git command menu, and full Nerd Font
-  theming. Detailed docs are in [`xplr/README.md`](xplr/README.md).
+  theming. Detailed docs are in [`xpdt/README.md`](xpdt/README.md).
 - **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter, a
   Monokai theme colour-matched to bat, plus leap, surround, comment, lualine and
-  indent guides) that opens from the xplr preview with `ctrl-e`.
+  indent guides) that opens from the xpdt preview with `ctrl-e`.
 
 ## Install
 
@@ -32,22 +38,27 @@ Neovim features, so exact releases matter), then symlinks the two configs into
 ### macOS and Linux
 
 ```sh
-git clone https://github.com/WolfyCodeK/xpdt.git ~/.config/xpdt
-cd ~/.config/xpdt
+git clone https://github.com/WolfyCodeK/xpdt.git ~/.xpdt
+cd ~/.xpdt
 ./install.sh
 ```
 
+Keep the clone somewhere stable (the example uses `~/.xpdt`); the configs are
+symlinked out of it, so moving or deleting it breaks them.
+
 `install.sh` downloads the pinned release binaries into `~/.local` (override with
 `--prefix DIR` or the `XPDT_PREFIX` env var), backs up any existing
-`~/.config/xplr` or `~/.config/nvim`, symlinks this repo in their place, and
-bootstraps the Neovim plugins. Ensure `~/.local/bin` is on your `PATH`, and set a
+`~/.config/xpdt` or `~/.config/nvim`, symlinks this repo in their place, installs
+the `xpdt` launcher next to the `xplr` binary, and bootstraps the Neovim plugins.
+Ensure `~/.local/bin` is on your `PATH`, and set a
 [Nerd Font](https://www.nerdfonts.com/) (for example Hack Nerd Font) as your
 terminal font so the icons render. Re-running is safe and idempotent.
 
 Flags: `--prefix DIR`, `--tools-only`, `--config-only`, `--no-nvim-bootstrap`.
 
-Once it is on your `PATH`, start it with **`xpdt`** (a thin alias for the pinned
-`xplr` binary, so `xplr` still works too).
+Once it is on your `PATH`, start the customised setup with **`xpdt`**. Plain
+**`xplr`** remains the stock file manager - the installer never writes a
+`~/.config/xplr`, so xplr keeps its out-of-the-box defaults.
 
 ### Windows (WSL2)
 

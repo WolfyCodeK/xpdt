@@ -8,12 +8,12 @@ COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=100
 TMP=$(mktemp); POSF=$(mktemp); PORTF=$(mktemp); MAPF=$(mktemp); MARKF=$(mktemp)
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$F" \
-  | W=$((COLS - 4)) HL="$XPLR_PREVIEW_LINE" POSFILE="$POSF" MAPFILE="$MAPF" python3 "$HOME/.config/xplr/wrap-lines.py" > "$TMP"
+  | W=$((COLS - 4)) HL="$XPLR_PREVIEW_LINE" POSFILE="$POSF" MAPFILE="$MAPF" python3 "$HOME/.config/xpdt/wrap-lines.py" > "$TMP"
 POSBIND=""
 POS=$(cat "$POSF" 2>/dev/null)
 [ -n "$POS" ] && POSBIND="--bind load:pos($POS)"
 BASE="$(basename "$F")"
-RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- '$F' | W=$((COLS - 4)) MAPFILE='$MAPF' python3 '$HOME/.config/xplr/wrap-lines.py'"
+RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- '$F' | W=$((COLS - 4)) MAPFILE='$MAPF' python3 '$HOME/.config/xpdt/wrap-lines.py'"
 (
   i=0
   while [ ! -s "$PORTF" ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
@@ -36,9 +36,9 @@ fzf --ansi --no-sort --exact --reverse --wrap --listen --prompt="$BASE > " \
     --bind "start:execute-silent(echo \$FZF_PORT > '$PORTF')" \
     --bind 'left:abort' \
     --bind "ctrl-v:execute-silent(echo {n} > '$MARKF')+change-prompt(select: move to end line, ctrl-y > )" \
-    --bind "ctrl-e:execute(sh '$HOME/.config/xplr/edit-at.sh' '$MAPF' {n} '$F')+reload($RELOAD)" \
-    --bind "enter:execute(XPLR_FOCUS_PATH='$F' sh \"$HOME/.config/xplr/open-menu.sh\")" \
-    --bind "ctrl-y:execute-silent[sh '$HOME/.config/xplr/copy-preview.sh' '$F' '$MAPF' '$MARKF' {n}; ( sleep 2; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d 'change-prompt($BASE > )' ) & ]+change-prompt(copied to clipboard > )" \
+    --bind "ctrl-e:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} '$F')+reload($RELOAD)" \
+    --bind "enter:execute(XPLR_FOCUS_PATH='$F' sh \"$HOME/.config/xpdt/open-menu.sh\")" \
+    --bind "ctrl-y:execute-silent[sh '$HOME/.config/xpdt/copy-preview.sh' '$F' '$MAPF' '$MARKF' {n}; ( sleep 2; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d 'change-prompt($BASE > )' ) & ]+change-prompt(copied to clipboard > )" \
     < "$TMP" || true
 kill "$WATCHER" 2>/dev/null
 rm -f "$TMP" "$POSF" "$PORTF" "$MAPF" "$MARKF"

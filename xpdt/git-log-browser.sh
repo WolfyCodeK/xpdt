@@ -4,7 +4,7 @@ DIR="${XPLR_DIR:-${XPLR_FOCUS_PATH:-$PWD}}"
 ROOT="$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)"
 [ -z "$ROOT" ] && exit 0
 
-X="$HOME/.config/xplr"
+X="$HOME/.config/xpdt"
 LOG="sh $X/git-log-list.sh '$ROOT'"
 
 while : ; do
@@ -37,6 +37,6 @@ while : ; do
           --bind 'enter:accept,left:abort')
     [ -z "$FILELINE" ] && break
     FILE=$(printf '%s\n' "$FILELINE" | awk '{print $NF}')
-    sh "$HOME/.config/xplr/open-git-diff.sh" "$ROOT" commit "$FILE" "$HASH"
+    sh "$HOME/.config/xpdt/open-git-diff.sh" "$ROOT" commit "$FILE" "$HASH"
   done
 done
