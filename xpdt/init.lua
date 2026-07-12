@@ -549,6 +549,20 @@ xplr.fn.custom.render_layout = function(ctx)
       changes_height = 30
     end
   end
+  -- Git history yields vertical space before the file explorer: when the window is short the
+  -- history graph shrinks (down to GRAPH_MIN rows) while the file-explorer Table keeps at least
+  -- TABLE_MIN rows. Only once the history is at its floor does the Table itself start to shrink.
+  local GRAPH_MAX, GRAPH_MIN, TABLE_MIN = 14, 3, 10
+  local graph_height = GRAPH_MAX
+  local h = ctx.layout_size and ctx.layout_size.height
+  if h then
+    graph_height = h - TABLE_MIN - changes_height - 13 -- 13 = InputAndLogs(3) + controls(10)
+    if graph_height > GRAPH_MAX then
+      graph_height = GRAPH_MAX
+    elseif graph_height < GRAPH_MIN then
+      graph_height = GRAPH_MIN
+    end
+  end
   return {
     CustomLayout = {
       Vertical = {
@@ -556,7 +570,7 @@ xplr.fn.custom.render_layout = function(ctx)
           constraints = {
             { Min = 1 },
             { Length = changes_height },
-            { Length = 14 },
+            { Length = graph_height },
             { Length = 3 },
             { Length = 10 },
           },
