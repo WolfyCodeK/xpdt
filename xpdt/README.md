@@ -10,7 +10,7 @@ Everything lives in `~/.config/xpdt/`. `init.lua` is the entry point; the rest a
 
 1. `Table` (the file listing) with custom columns: index, path (tree + icon + name), a one char git modified dot (`M`), git author, size, modified time.
 2. `changes` box (`custom.render_git_changes`) listing staged and unstaged changes, auto sized to the number of changes (capped at 30 rows).
-3. `git history` box (`custom.render_git_graph`) showing the last 100 commits of the current branch.
+3. `git history` box (`custom.render_git_graph`) showing the last 100 commits of the current branch. Sized responsively from the terminal height: on a short window it scales down first (to a ~3 row floor) so the file listing keeps at least ~10 rows; only once the history reaches that floor does the file listing itself start to shrink.
 4. `InputAndLogs` (xplr's built in input / log line).
 5. `controls` box (`custom.render_controls`), a colour coded key legend.
 
