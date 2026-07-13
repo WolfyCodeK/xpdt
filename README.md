@@ -12,9 +12,9 @@ get two commands:
 - **`xpdt`** launches the customised setup (it runs `xplr -c ~/.config/xpdt/init.lua`).
 - **`xplr`** stays completely stock - the plain, out-of-the-box file manager.
 
-- **`xpdt/`** goes in `~/.config/xpdt`. The customised xplr config: git changes
-  and log browsers, an inline diff viewer with change-to-change navigation, a
-  syntax-highlighted file preview with search and clean line-range copy,
+- **`xpdt/`** goes in `~/.config/xpdt`. The customised xplr config: git changes,
+  log and stash browsers, an inline diff viewer with change-to-change navigation,
+  a syntax-highlighted file preview with search and clean line-range copy,
   code-gated file create/delete/move, a git command menu, and full Nerd Font
   theming. Detailed docs are in [`xpdt/README.md`](xpdt/README.md).
 - **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter, a

@@ -58,6 +58,14 @@ xplr.config.modes.builtin.default.key_bindings.on_key["g"] = {
   }
 }
 
+xplr.config.modes.builtin.default.key_bindings.on_key["s"] = {
+  help = "git stash browser",
+  messages = {
+    { BashExec = "sh \"$HOME/.config/xpdt/git-stash-browser.sh\"" },
+    "ExplorePwdAsync",
+  }
+}
+
 xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-h"] = {
   help = "neovim cheat sheet",
   messages = {
@@ -526,11 +534,12 @@ xplr.fn.custom.render_controls = function(ctx)
       ui = { title = { format = " controls " } },
       body = {
         line("move", { { "↑↓", "navigate" }, { "→", "open/preview" }, { "←", "up dir" }, { "'", "start dir" }, { "q", "quit" } }),
-        line("open", { { "enter", "repo changes" }, { ";", "git log" }, { "/", "find files" }, { "\\", "search text" }, { "g", "git menu" }, { "ctrl-h", "nvim keys" } }),
+        line("open", { { "enter", "repo changes" }, { ";", "git log" }, { "s", "stashes" }, { "/", "find files" }, { "\\", "search text" }, { "g", "git menu" }, { "ctrl-h", "nvim keys" } }),
         line("files", { { "a", "new file" }, { "f", "new folder" }, { "m", "move" }, { "d", "delete" } }),
         line("search", { { "type", "filter" }, { "tab", "toggle scope" } }),
         line("changes", { { "s", "stage/unstage" }, { "d", "discard" }, { "c", "commit" } }),
         line("commits", { { "→", "open" }, { "ctrl-z", "undo last" } }),
+        line("stash", { { "a", "apply" }, { "p", "pop" }, { "d", "drop" }, { "n", "new" }, { "x", "clear all" }, { "→", "view" } }),
         line("preview", { { "type", "search" }, { "ctrl-v", "select" }, { "ctrl-y", "copy" }, { "ctrl-e", "edit" }, { "enter", "menu" } }),
         line("diff", { { "→", "next change" }, { "shift-→", "prev change" }, { "←", "back" } }),
       },
@@ -558,7 +567,7 @@ xplr.fn.custom.render_layout = function(ctx)
   local graph_height = GRAPH_MAX
   local h = ctx.layout_size and ctx.layout_size.height
   if h then
-    graph_height = h - TABLE_MIN - changes_height - 13 -- 13 = InputAndLogs(3) + controls(10)
+    graph_height = h - TABLE_MIN - changes_height - 14 -- 14 = InputAndLogs(3) + controls(11)
     if graph_height > GRAPH_MAX then
       graph_height = GRAPH_MAX
     elseif graph_height < GRAPH_MIN then
@@ -574,7 +583,7 @@ xplr.fn.custom.render_layout = function(ctx)
             { Length = changes_height },
             { Length = graph_height },
             { Length = 3 },
-            { Length = 10 },
+            { Length = 11 },
           },
         },
         splits = {

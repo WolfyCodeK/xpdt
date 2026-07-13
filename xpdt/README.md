@@ -1,6 +1,6 @@
 # xpdt config (customised xplr)
 
-A heavily customised [xplr](https://xplr.dev) (v1.1.0) file manager set up as a lightweight, keyboard driven git client and code browser. It adds a git author column, a git status column, a live changes browser (stage / unstage / discard / commit / edit in Neovim), a commit history browser with undo, an inline full file diff viewer, recursive file and content search with a persistent scope toggle, a syntax highlighted file preview with indent aware wrapping and clipboard copy, Nerd Font icons and colours, and a colour coded controls legend at the bottom of the screen.
+A heavily customised [xplr](https://xplr.dev) (v1.1.0) file manager set up as a lightweight, keyboard driven git client and code browser. It adds a git author column, a git status column, a live changes browser (stage / unstage / discard / commit / edit in Neovim), a commit history browser with undo, a stash browser (create / apply / pop / drop / clear), an inline full file diff viewer, recursive file and content search with a persistent scope toggle, a syntax highlighted file preview with indent aware wrapping and clipboard copy, Nerd Font icons and colours, and a colour coded controls legend at the bottom of the screen.
 
 Everything lives in `~/.config/xpdt/`. `init.lua` is the entry point; the rest are small helper scripts it shells out to. It is loaded by the `xpdt` command (`xplr -c ~/.config/xpdt/init.lua`); plain `xplr` is left untouched and runs stock.
 
@@ -25,6 +25,7 @@ Main directory view:
 | `←`     | up a directory (xplr built in)                         |
 | `enter` | repo changes browser (`git-changes-browser.sh`)        |
 | `;`     | commit history browser (`git-log-browser.sh`)          |
+| `s`     | stash browser (`git-stash-browser.sh`)                 |
 | `/`     | find files by name (`search.sh files`)                 |
 | `\`     | search inside files (`search.sh content`)              |
 | `'`     | jump back to the directory xplr was opened from        |
@@ -33,6 +34,8 @@ Main directory view:
 Changes browser (`enter`): `s` stage/unstage (toggle, based on where the entry currently is), `d` discard (confirms), `c` commit (prompts), `ctrl-e` edit the file in Neovim, `→` inline diff viewer, `enter` open the diff in VS Code, `←` back.
 
 Commit history (`;`): `→` open a commit, `ctrl-z` undo the last commit (soft reset, confirms), `←` back. Inside a commit: `→` inline diff viewer, `enter` open the diff in VS Code, `←` back.
+
+Stash browser (`s`): `a` apply (keeps the stash), `p` pop (apply then drop), `d` drop the selected stash (confirms), `n` new stash from the working tree (prompts for an optional message, includes untracked files), `x` clear all stashes (2-digit confirm), `enter` / `→` view the full stash diff in a pager, `←` back. The preview shows the stash's diffstat and patch. Actions stay on letter keys so `enter` only ever views, never mutates.
 
 File / content search (`/` `\`): type to filter, `tab` toggle scope (current dir vs whole tree from the launch dir), `→` preview, `enter` select (`/`) or open menu (`\`), `←` cancel. Hits are shown as paths relative to the scope dir (leading `/`, e.g. `/sub/file`), not the full launch path.
 
@@ -51,6 +54,9 @@ Inline diff viewer: `→` previous change, `shift-→` next change, `←` back.
 | `git-changes-browser.sh` | The `enter` changes browser: fzf over the change list with stage/unstage toggle / discard / commit / Neovim edit / diff / VS Code bindings, live reload, and a list that resizes as changes are added or removed. |
 | `git-log-list.sh`        | Prints the commit list for the `;` browser.                                                                                                                                                                       |
 | `git-log-browser.sh`     | The `;` commit history browser (two levels: commits, then files in a commit) with undo.                                                                                                                           |
+| `git-stash-list.sh`      | Prints the stash list for the `s` browser (ref, relative date, description).                                                                                                                                      |
+| `git-stash-browser.sh`   | The `s` stash browser: fzf over the stash list with a diff+stat preview and apply / pop / drop / new / clear / view bindings, live reload, and a list that resizes to the stash count.                            |
+| `git-stash-op.sh`        | Runs one stash operation (push / apply / pop / drop / clear) with the right confirm or prompt for each.                                                                                                           |
 | `git-commit.sh`          | Commit message prompt (bash `read -e` for arrow key editing).                                                                                                                                                     |
 | `git-discard.sh`         | Discard confirm and the actual discard (tracked, untracked, staged variants).                                                                                                                                     |
 | `git-undo.sh`            | Undo the last commit (`git reset --soft HEAD~1`) with a confirm.                                                                                                                                                  |
@@ -92,6 +98,10 @@ Inline diff viewer: `→` previous change, `shift-→` next change, `←` back.
 ### Commit history (`;`) and undo
 
 `git-log-browser.sh` has two levels: the commit list, then the files changed in a commit. `ctrl-z` on the commit list runs `git-undo.sh`, which does `git reset --soft HEAD~1` (the commit is removed but the changes stay staged, matching VS Code's "undo last commit") after a confirm.
+
+### Stash browser (`s`)
+
+`git-stash-browser.sh` is the same lazygit-style, `--disabled --no-input` fzf shell as the changes browser, over `git stash list` (via `git-stash-list.sh`, which emits `stash@{N}` as the first field so every action keys off it). The preview is `git stash show -p --stat` for the focused stash. `a` (apply), `p` (pop), `d` (drop), `n` (new), and `x` (clear) each shell out to `git-stash-op.sh` and then `reload` the list in place; `enter` / `→` pipe the full stash diff into a pager. `git-stash-op.sh` holds the confirms and prompts: `push` refuses a clean tree, prompts for an optional message, and always stashes untracked files too (`--include-untracked`); `apply` / `pop` show git's output and pause only if it fails (a conflict); `drop` is a y/N confirm; `clear` uses the same 2-digit code confirm as the risky git-menu entries. Every action guards on a non-empty ref, so the browser is safe to open (and to press `n` in) even with no stashes.
 
 ### Inline diff viewer
 
