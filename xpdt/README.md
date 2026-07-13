@@ -34,7 +34,7 @@ Changes browser (`enter`): `s` stage/unstage (toggle, based on where the entry c
 
 Commit history (`;`): `→` open a commit, `ctrl-z` undo the last commit (soft reset, confirms), `←` back. Inside a commit: `→` inline diff viewer, `enter` open the diff in VS Code, `←` back.
 
-File / content search (`/` `\`): type to filter, `tab` toggle scope (current dir vs whole tree from the launch dir), `→` preview, `enter` select (`/`) or open menu (`\`), `←` cancel.
+File / content search (`/` `\`): type to filter, `tab` toggle scope (current dir vs whole tree from the launch dir), `→` preview, `enter` select (`/`) or open menu (`\`), `←` cancel. Hits are shown as paths relative to the scope dir (leading `/`, e.g. `/sub/file`), not the full launch path.
 
 File preview: type to filter lines, `ctrl-y` copy the whole file to the clipboard, `enter` file menu (`open-menu.sh`), `←` back.
 
@@ -58,8 +58,9 @@ Inline diff viewer: `→` previous change, `shift-→` next change, `←` back.
 | `open-menu.sh`           | The file options menu (open in VS Code, preview / open changes, preview / open staged).                                                                                                                           |
 | `preview-file.sh`        | Full screen file preview: `bat` for colour, `wrap-lines.py` for the gutter and indent aware wrap, fzf to display.                                                                                                 |
 | `wrap-lines.py`          | ANSI aware, indent preserving line wrapper for the file preview. Adds the line number gutter and remaps the `\` search jump position.                                                                             |
-| `search.sh`              | Backend for `/` (files, mtime sorted) and `\` (content, ripgrep). Scope aware.                                                                                                                                    |
+| `search.sh`              | Backend for `/` (files, mtime sorted) and `\` (content, ripgrep). Scope aware; emits paths relative to the scope dir.                                                                                             |
 | `scope.sh`               | Toggles and renders the search scope (`here` vs `root`).                                                                                                                                                          |
+| `resolve.sh`             | Turns a base-relative search-result path (as shown in the `/` `\` menus) back into a real path, using the current scope.                                                                                          |
 | `diff-view.sh`           | The inline diff viewer: syntax highlights both the before and after versions with `bat` and feeds the hunks to `diff-render.py`.                                                                                  |
 | `diff-render.py`         | Interleaves the before / after highlighted lines by the diff hunks into a unified view: removed lines red, added lines green, context grey, with change positions for navigation.                                 |
 | `diff-nav.sh`            | Computes the next / previous change position for the diff viewer.                                                                                                                                                 |
@@ -104,7 +105,7 @@ Before / after are `git diff --cached` / index and HEAD for staged, working file
 
 ### File and content search (`/` `\`)
 
-`search.sh` is the backend. `/` (files) uses `find` piped through `stat` and `sort` so results are newest modified first, and fzf runs with `--exact` so matches are literal substrings, not fuzzy. `\` (content) uses `ripgrep --fixed-strings --sortr=modified` (falls back to `grep`), re run on every keystroke via fzf's `change:reload`.
+`search.sh` is the backend. `/` (files) uses `find` piped through `stat` and `sort` so results are newest modified first, and fzf runs with `--exact` so matches are literal substrings, not fuzzy; it also re-runs on every keystroke (fzf `change:reload`), so files created while the menu is open show up without leaving it. `\` (content) uses `ripgrep --fixed-strings --sortr=modified` (falls back to `grep`), re run on every keystroke via fzf's `change:reload`. Both emit each hit as a path relative to the scope dir (leading `/`) rather than the full launch path; `resolve.sh` turns a shown path back into the real one for the preview and open actions.
 
 Scope: `scope.sh` reads / toggles `.search-scope` (`here` = current directory, `root` = the directory xplr was launched from). `tab` toggles it, and because the state is a file it persists across sessions and is shared by `/` and `\`. The current scope is shown in the fzf header.
 

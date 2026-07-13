@@ -92,13 +92,15 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
         FILE=$(eval "$GEN" | fzf --no-sort --exact \
           --header="$(sh $X/scope.sh header "$SF")" \
           --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GEN" \
+          --bind "change:reload:sleep 0.1; $GEN" \
           --bind 'left:abort' \
-          --bind 'right:execute(XPLR_FOCUS_PATH={} sh "$HOME/.config/xpdt/preview-file.sh")' \
+          --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {})\" sh $X/preview-file.sh)" \
           --bind 'enter:accept')
         if [ -n "$FILE" ]; then
+          FULL=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "$FILE")
           echo 'ResetNodeFilters' >> "${XPLR_PIPE_MSG_IN:?}"
           echo "CallLuaSilently: 'custom.clear_xplrignore_flag'" >> "${XPLR_PIPE_MSG_IN:?}"
-          echo "FocusPath: '$FILE'" >> "${XPLR_PIPE_MSG_IN:?}"
+          echo "FocusPath: '$FULL'" >> "${XPLR_PIPE_MSG_IN:?}"
         fi
       ]===]
     }
@@ -120,14 +122,14 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
             --bind "change:reload:sleep 0.1; $GENQ {q}" \
             --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
             --bind 'left:abort' \
-            --bind 'right:execute(XPLR_FOCUS_PATH={1} XPLR_PREVIEW_LINE={2} sh "$HOME/.config/xpdt/preview-file.sh")' \
+            --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/preview-file.sh)" \
             --bind 'enter:accept' \
             --delimiter : \
-            --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null || cat -n {1}' \
+            --preview "F=\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \
             --preview-window 'up,60%,+{2}-5'
         )
         if [ -n "$RESULT" ]; then
-          FILE="${RESULT%%:*}"
+          FILE=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "${RESULT%%:*}")
           XPLR_FOCUS_PATH="$FILE" sh "$X/open-menu.sh"
         fi
       ]===]
