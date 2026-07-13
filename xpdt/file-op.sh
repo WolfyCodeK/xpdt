@@ -7,15 +7,8 @@ case "$F" in
   *) [ -n "$F" ] && F="$DIR/$F" ;;
 esac
 
+GATE="$HOME/.config/xpdt/gate.sh"
 flush() { python3 -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' 2>/dev/null; }
-confirm() {
-  c=$(python3 -c 'import random; print(random.randint(10, 99))')
-  printf '%s\n' "$1"
-  printf 'Type %s to confirm (anything else cancels): ' "$c"
-  flush
-  read -r a
-  [ "$a" = "$c" ]
-}
 
 printf '\n'
 case "$OP" in
@@ -25,10 +18,8 @@ case "$OP" in
     [ -z "$NAME" ] && { printf 'Cancelled.\n'; sleep 0.5; exit 0; }
     T="$DIR/$NAME"
     [ -e "$T" ] && { printf 'Already exists: %s\n' "$NAME"; sleep 0.7; exit 0; }
-    if confirm "Create file: $NAME"; then
+    if sh "$GATE" confirm create "Create file: $NAME"; then
       ( mkdir -p "$(dirname "$T")" && : > "$T" ) && printf 'Created file: %s\n' "$NAME" || printf 'Create failed.\n'
-    else
-      printf 'Cancelled.\n'
     fi
     ;;
   newfolder)
@@ -37,10 +28,8 @@ case "$OP" in
     [ -z "$NAME" ] && { printf 'Cancelled.\n'; sleep 0.5; exit 0; }
     T="$DIR/$NAME"
     [ -e "$T" ] && { printf 'Already exists: %s\n' "$NAME"; sleep 0.7; exit 0; }
-    if confirm "Create folder: $NAME"; then
+    if sh "$GATE" confirm create "Create folder: $NAME"; then
       mkdir -p "$T" && printf 'Created folder: %s\n' "$NAME" || printf 'Create failed.\n'
-    else
-      printf 'Cancelled.\n'
     fi
     ;;
   move)
@@ -52,10 +41,8 @@ case "$OP" in
     case "$DEST" in /*) ;; *) DEST="$DIR/$DEST" ;; esac
     if [ -d "$DEST" ]; then FINAL="$DEST/$SRC"; else FINAL="$DEST"; fi
     [ -e "$FINAL" ] && { printf 'Destination exists: %s\n' "$FINAL"; sleep 0.7; exit 0; }
-    if confirm "Move $SRC -> $FINAL"; then
+    if sh "$GATE" confirm move "Move $SRC -> $FINAL"; then
       mv -- "$F" "$FINAL" && printf 'Moved to: %s\n' "$FINAL" || printf 'Move failed.\n'
-    else
-      printf 'Cancelled.\n'
     fi
     ;;
 esac

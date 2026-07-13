@@ -8,12 +8,6 @@ if ! git -C "$ROOT" rev-parse --verify -q HEAD~1 >/dev/null 2>&1; then
   exit 0
 fi
 SUBJ=$(git -C "$ROOT" log -1 --format='%h %s')
-python3 -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
-printf 'Undo last commit [%s]? changes are kept and staged. [y/N] ' "$SUBJ" > /dev/tty
-read ans < /dev/tty || exit 0
-case "$ans" in
-  y|Y) ;;
-  *) exit 0 ;;
-esac
+sh "$HOME/.config/xpdt/gate.sh" confirm undo "Undo last commit [$SUBJ]? changes are kept and staged." || exit 0
 git -C "$ROOT" reset --soft HEAD~1 > /dev/tty 2>&1
 sleep 1

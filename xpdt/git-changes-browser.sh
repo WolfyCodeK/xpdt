@@ -27,7 +27,7 @@ while : ; do
         --preview "$DIFF" \
         --preview-window "down,$((TERMH - LISTH))" \
         --bind "load:transform:$RESIZE" \
-        --bind "s:execute-silent(if [ {1} = staged ]; then git -C '$ROOT' restore --staged -- {3..}; else git -C '$ROOT' add -- {3..}; fi)+reload($LIST)" \
+        --bind "s:execute(sh $X/git-stage.sh '$ROOT' {1} {3..})+reload($LIST)" \
         --bind "d:execute(sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \
         --bind "c:execute(bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
         --bind "right:execute(sh $X/diff-view.sh '$ROOT' {1} {3..})" \

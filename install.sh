@@ -216,6 +216,26 @@ XPDT_LAUNCHER
   info "xpdt -> $BIN_DIR/xpdt  (launches: xplr -c ~/.config/xpdt/init.lua)"
 }
 
+# Seed the confirmation-gate config so the 2-digit confirm is on for every action
+# by default after install. Never overwrite an existing one - it holds the user's
+# per-action choices. (gate.sh also treats an absent file/key as on, so this is
+# belt-and-braces: it just makes the defaults explicit for the settings menu.)
+seed_gate_config() {
+  cfg="$HOME/.config/xpdt/.gate-config"
+  if [ -e "$cfg" ]; then info "confirm-gate config present ($cfg)"; return 0; fi
+  if {
+    echo "enabled=1"
+    for k in create move delete stage discard commit undo \
+      stash-apply stash-pop stash-drop stash-new stash-clear checkout pull; do
+      echo "$k=1"
+    done
+  } > "$cfg" 2>/dev/null; then
+    info "seeded confirm-gate config (all actions on) -> $cfg"
+  else
+    warn "could not seed $cfg (the 2-digit confirm is still on by default)"
+  fi
+}
+
 bootstrap_nvim() {
   command -v nvim >/dev/null 2>&1 || { warn "nvim not found; skipping plugin bootstrap"; return; }
   info "installing Neovim plugins (pulls lazy.nvim on first run)"
@@ -236,6 +256,7 @@ if [ "$DO_CONFIG" = 1 ]; then
   step "linking config and launcher"
   link_config xpdt; link_config nvim
   install_launcher
+  seed_gate_config
 fi
 if [ "$DO_TOOLS" = 1 ] && [ "$DO_CONFIG" = 1 ] && [ "$DO_NVIM_BOOTSTRAP" = 1 ]; then
   step "bootstrapping neovim"

@@ -1,0 +1,89 @@
+#!/bin/sh
+# xpdt confirmation gate: a per-action "type 2 random digits to confirm" guard,
+# on by default for every mutating action. State lives in ~/.config/xpdt/.gate-config
+# as key=1/0 lines; an absent file or key reads as ON, so the gate is enabled by
+# default (including immediately after install, before the file is written).
+#
+# Every mutating action script calls:  sh gate.sh confirm <action> "<message>"
+# and proceeds only on exit 0. The `,` settings menu (gate-menu.sh) toggles the
+# master switch and the per-action flags via `toggle`.
+CFG="$HOME/.config/xpdt/.gate-config"
+
+# The gateable actions and their menu labels (order = menu order).
+action_rows() {
+  cat <<'EOF'
+create|create file / folder
+move|move / rename
+delete|delete file / folder
+stage|stage / unstage
+discard|discard changes
+commit|commit
+undo|undo last commit
+stash-apply|stash: apply
+stash-pop|stash: pop
+stash-drop|stash: drop
+stash-new|stash: new
+stash-clear|stash: clear all
+checkout|git: checkout branch
+pull|git: pull
+EOF
+}
+
+get() { # get KEY -> 1 (on, the default) or 0 (off)
+  [ -f "$CFG" ] || { echo 1; return; }
+  v=$(sed -n "s/^$1=//p" "$CFG" 2>/dev/null | head -n1)
+  case "$v" in 0) echo 0 ;; *) echo 1 ;; esac
+}
+
+ensure_cfg() { # materialise an all-on config the first time one is needed
+  [ -f "$CFG" ] && return
+  { echo "enabled=1"; action_rows | while IFS='|' read -r k _; do echo "$k=1"; done; } > "$CFG" 2>/dev/null
+}
+
+toggle() { # toggle KEY (use __master__ for the master switch)
+  key="$1"; [ "$key" = "__master__" ] && key="enabled"
+  ensure_cfg
+  if [ "$(get "$key")" = 1 ]; then new=0; else new=1; fi
+  if grep -q "^$key=" "$CFG" 2>/dev/null; then
+    tmp="$CFG.$$"; sed "s/^$key=.*/$key=$new/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
+  else
+    echo "$key=$new" >> "$CFG"
+  fi
+}
+
+required() { # exit 0 if ACTION needs the code (master on AND this action on)
+  [ "$(get enabled)" = 1 ] && [ "$(get "$1")" = 1 ]
+}
+
+box() { [ "$1" = 1 ] && printf '\033[32m[x]\033[0m' || printf '\033[90m[ ]\033[0m'; }
+
+case "${1:-}" in
+  get) get "$2" ;;
+  toggle) toggle "$2" ;;
+  required) required "$2" ;;
+  confirm)
+    action="$2"; msg="$3"
+    required "$action" || exit 0
+    c=$(python3 -c 'import random; print(random.randint(10, 99))')
+    { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
+    python3 -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
+    IFS= read -r a < /dev/tty || { printf '\n' > /dev/tty; exit 1; }
+    [ "$a" = "$c" ] && exit 0
+    printf 'Cancelled.\n' > /dev/tty; sleep 0.5; exit 1
+    ;;
+  menu)
+    # Rows are "key  checkbox  label"; field 1 (the key) is hidden by fzf's
+    # --with-nth and used only by the toggle bind. Master off dims the actions.
+    en=$(get enabled)
+    printf '__master__ %s Require 2-digit confirmation (master switch)\n' "$(box "$en")"
+    action_rows | while IFS='|' read -r k label; do
+      v=$(get "$k")
+      if [ "$en" = 1 ]; then
+        printf '%s %s %s\n' "$k" "$(box "$v")" "$label"
+      else
+        printf '%s \033[90m%s %s\033[0m\n' "$k" "$([ "$v" = 1 ] && printf '[x]' || printf '[ ]')" "$label"
+      fi
+    done
+    ;;
+  *) echo "usage: gate.sh {get|toggle|required|confirm|menu} ..." >&2; exit 2 ;;
+esac

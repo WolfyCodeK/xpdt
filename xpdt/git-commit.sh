@@ -10,5 +10,6 @@ fi
 read -e -r -p 'Commit message (empty to cancel): ' msg < /dev/tty || exit 0
 python3 -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
 [ -z "$msg" ] && exit 0
+sh "$HOME/.config/xpdt/gate.sh" confirm commit "Commit: $msg" || exit 0
 git -C "$ROOT" commit -m "$msg" > /dev/tty 2>&1
 sleep 1.5

@@ -73,6 +73,13 @@ xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-h"] = {
   }
 }
 
+xplr.config.modes.builtin.default.key_bindings.on_key[","] = {
+  help = "confirmation settings",
+  messages = {
+    { BashExec = "sh \"$HOME/.config/xpdt/gate-menu.sh\"" },
+  }
+}
+
 xplr.config.modes.builtin.default.key_bindings.on_key["right"] = {
   help = "enter dir or preview file",
   messages = {
@@ -534,7 +541,7 @@ xplr.fn.custom.render_controls = function(ctx)
       ui = { title = { format = " controls " } },
       body = {
         line("move", { { "↑↓", "navigate" }, { "→", "open/preview" }, { "←", "up dir" }, { "'", "start dir" }, { "q", "quit" } }),
-        line("open", { { "enter", "repo changes" }, { ";", "git log" }, { "s", "stashes" }, { "/", "find files" }, { "\\", "search text" }, { "g", "git menu" }, { "ctrl-h", "nvim keys" } }),
+        line("open", { { "enter", "changes" }, { ";", "git log" }, { "s", "stashes" }, { "/", "find" }, { "\\", "search" }, { "g", "git menu" }, { ",", "settings" }, { "ctrl-h", "nvim" } }),
         line("files", { { "a", "new file" }, { "f", "new folder" }, { "m", "move" }, { "d", "delete" } }),
         line("search", { { "type", "filter" }, { "tab", "toggle scope" } }),
         line("changes", { { "s", "stage/unstage" }, { "d", "discard" }, { "c", "commit" } }),
