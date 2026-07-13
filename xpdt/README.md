@@ -1,6 +1,6 @@
 # xpdt config (customised xplr)
 
-A heavily customised [xplr](https://xplr.dev) (v1.1.0) file manager set up as a lightweight, keyboard driven git client and code browser. It adds a git author column, a git status column, a live changes browser (stage / unstage / discard / commit), a commit history browser with undo, an inline full file diff viewer, recursive file and content search with a persistent scope toggle, a syntax highlighted file preview with indent aware wrapping and clipboard copy, Nerd Font icons and colours, and a colour coded controls legend at the bottom of the screen.
+A heavily customised [xplr](https://xplr.dev) (v1.1.0) file manager set up as a lightweight, keyboard driven git client and code browser. It adds a git author column, a git status column, a live changes browser (stage / unstage / discard / commit / edit in Neovim), a commit history browser with undo, an inline full file diff viewer, recursive file and content search with a persistent scope toggle, a syntax highlighted file preview with indent aware wrapping and clipboard copy, Nerd Font icons and colours, and a colour coded controls legend at the bottom of the screen.
 
 Everything lives in `~/.config/xpdt/`. `init.lua` is the entry point; the rest are small helper scripts it shells out to. It is loaded by the `xpdt` command (`xplr -c ~/.config/xpdt/init.lua`); plain `xplr` is left untouched and runs stock.
 
@@ -30,7 +30,7 @@ Main directory view:
 | `'`     | jump back to the directory xplr was opened from        |
 | `q`     | quit (xplr built in)                                   |
 
-Changes browser (`enter`): `s` stage/unstage (toggle, based on where the entry currently is), `d` discard (confirms), `c` commit (prompts), `→` inline diff viewer, `enter` open the diff in VS Code, `←` back.
+Changes browser (`enter`): `s` stage/unstage (toggle, based on where the entry currently is), `d` discard (confirms), `c` commit (prompts), `ctrl-e` edit the file in Neovim, `→` inline diff viewer, `enter` open the diff in VS Code, `←` back.
 
 Commit history (`;`): `→` open a commit, `ctrl-z` undo the last commit (soft reset, confirms), `←` back. Inside a commit: `→` inline diff viewer, `enter` open the diff in VS Code, `←` back.
 
@@ -42,28 +42,28 @@ Inline diff viewer: `→` previous change, `shift-→` next change, `←` back.
 
 ## Files
 
-| File                     | Purpose                                                                                                                                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init.lua`               | Entry point: key bindings, the dynamic layout, the table columns, caches, git helpers written in Lua, and the styling that is not in `theme.lua`. Loads `theme.lua` at the end via `dofile`.        |
-| `theme.lua`              | Generated. Node type icons (Nerd Font) and colours for directories, symlinks and file extensions, plus dimmed styling for `.git`, `node_modules`, `__pycache__`, `.venv`.                           |
-| `git-authors.sh`         | Prints `@@@author` + changed file paths for a directory, used to fill the git author column in one `git log` per folder (see Git author column below).                                              |
-| `git-changes-list.sh`    | Prints the staged / unstaged porcelain list for the changes browser.                                                                                                                                |
-| `git-changes-browser.sh` | The `enter` changes browser: fzf over the change list with stage/unstage toggle / discard / commit / diff / VS Code bindings, live reload, and a list that resizes as changes are added or removed. |
-| `git-log-list.sh`        | Prints the commit list for the `;` browser.                                                                                                                                                         |
-| `git-log-browser.sh`     | The `;` commit history browser (two levels: commits, then files in a commit) with undo.                                                                                                             |
-| `git-commit.sh`          | Commit message prompt (bash `read -e` for arrow key editing).                                                                                                                                       |
-| `git-discard.sh`         | Discard confirm and the actual discard (tracked, untracked, staged variants).                                                                                                                       |
-| `git-undo.sh`            | Undo the last commit (`git reset --soft HEAD~1`) with a confirm.                                                                                                                                    |
-| `open-git-diff.sh`       | Opens a diff in VS Code with clean, ref labelled tab titles (see VS Code diff below).                                                                                                               |
-| `open-menu.sh`           | The file options menu (open in VS Code, preview / open changes, preview / open staged).                                                                                                             |
-| `preview-file.sh`        | Full screen file preview: `bat` for colour, `wrap-lines.py` for the gutter and indent aware wrap, fzf to display.                                                                                   |
-| `wrap-lines.py`          | ANSI aware, indent preserving line wrapper for the file preview. Adds the line number gutter and remaps the `\` search jump position.                                                               |
-| `search.sh`              | Backend for `/` (files, mtime sorted) and `\` (content, ripgrep). Scope aware.                                                                                                                      |
-| `scope.sh`               | Toggles and renders the search scope (`here` vs `root`).                                                                                                                                            |
-| `diff-view.sh`           | The inline diff viewer: syntax highlights both the before and after versions with `bat` and feeds the hunks to `diff-render.py`.                                                                    |
-| `diff-render.py`         | Interleaves the before / after highlighted lines by the diff hunks into a unified view: removed lines red, added lines green, context grey, with change positions for navigation.                   |
-| `diff-nav.sh`            | Computes the next / previous change position for the diff viewer.                                                                                                                                   |
-| `.search-scope`          | State file holding the current search scope. Persists across sessions. Not code.                                                                                                                    |
+| File                     | Purpose                                                                                                                                                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `init.lua`               | Entry point: key bindings, the dynamic layout, the table columns, caches, git helpers written in Lua, and the styling that is not in `theme.lua`. Loads `theme.lua` at the end via `dofile`.                      |
+| `theme.lua`              | Generated. Node type icons (Nerd Font) and colours for directories, symlinks and file extensions, plus dimmed styling for `.git`, `node_modules`, `__pycache__`, `.venv`.                                         |
+| `git-authors.sh`         | Prints `@@@author` + changed file paths for a directory, used to fill the git author column in one `git log` per folder (see Git author column below).                                                            |
+| `git-changes-list.sh`    | Prints the staged / unstaged porcelain list for the changes browser.                                                                                                                                              |
+| `git-changes-browser.sh` | The `enter` changes browser: fzf over the change list with stage/unstage toggle / discard / commit / Neovim edit / diff / VS Code bindings, live reload, and a list that resizes as changes are added or removed. |
+| `git-log-list.sh`        | Prints the commit list for the `;` browser.                                                                                                                                                                       |
+| `git-log-browser.sh`     | The `;` commit history browser (two levels: commits, then files in a commit) with undo.                                                                                                                           |
+| `git-commit.sh`          | Commit message prompt (bash `read -e` for arrow key editing).                                                                                                                                                     |
+| `git-discard.sh`         | Discard confirm and the actual discard (tracked, untracked, staged variants).                                                                                                                                     |
+| `git-undo.sh`            | Undo the last commit (`git reset --soft HEAD~1`) with a confirm.                                                                                                                                                  |
+| `open-git-diff.sh`       | Opens a diff in VS Code with clean, ref labelled tab titles (see VS Code diff below).                                                                                                                             |
+| `open-menu.sh`           | The file options menu (open in VS Code, preview / open changes, preview / open staged).                                                                                                                           |
+| `preview-file.sh`        | Full screen file preview: `bat` for colour, `wrap-lines.py` for the gutter and indent aware wrap, fzf to display.                                                                                                 |
+| `wrap-lines.py`          | ANSI aware, indent preserving line wrapper for the file preview. Adds the line number gutter and remaps the `\` search jump position.                                                                             |
+| `search.sh`              | Backend for `/` (files, mtime sorted) and `\` (content, ripgrep). Scope aware.                                                                                                                                    |
+| `scope.sh`               | Toggles and renders the search scope (`here` vs `root`).                                                                                                                                                          |
+| `diff-view.sh`           | The inline diff viewer: syntax highlights both the before and after versions with `bat` and feeds the hunks to `diff-render.py`.                                                                                  |
+| `diff-render.py`         | Interleaves the before / after highlighted lines by the diff hunks into a unified view: removed lines red, added lines green, context grey, with change positions for navigation.                                 |
+| `diff-nav.sh`            | Computes the next / previous change position for the diff viewer.                                                                                                                                                 |
+| `.search-scope`          | State file holding the current search scope. Persists across sessions. Not code.                                                                                                                                  |
 
 ## How the features work
 
@@ -86,7 +86,7 @@ Inline diff viewer: `→` previous change, `shift-→` next change, `←` back.
 
 ### Changes browser (`enter`)
 
-`git-changes-browser.sh` lists staged and unstaged entries and binds single keys (lazygit style, so the list is `--disabled` and `--no-input`, no filter box at all since the keys are actions not text): `s` toggles the entry (stages an unstaged entry with `git add`, unstages a staged entry with `git restore --staged`, based on the entry's group), `d` discard, `c` commit. Each action runs then `reload`s the list in place, and a `load:transform` bind resizes the list to the current entry count (reading `$FZF_TOTAL_COUNT` and calling `change-preview-window`) so it grows and shrinks as changes appear or are staged. `enter` opens the diff in VS Code via `open-git-diff.sh`; `→` opens the inline diff viewer. Discard and commit are separate scripts because they need a confirm / prompt.
+`git-changes-browser.sh` lists staged and unstaged entries and binds single keys (lazygit style, so the list is `--disabled` and `--no-input`, no filter box at all since the keys are actions not text): `s` toggles the entry (stages an unstaged entry with `git add`, unstages a staged entry with `git restore --staged`, based on the entry's group), `d` discard, `c` commit. Each action runs then `reload`s the list in place, and a `load:transform` bind resizes the list to the current entry count (reading `$FZF_TOTAL_COUNT` and calling `change-preview-window`) so it grows and shrinks as changes appear or are staged. `enter` opens the diff in VS Code via `open-git-diff.sh`; `→` opens the inline diff viewer; `ctrl-e` opens the working file in Neovim (then `reload`s the list, since the edit may change the diff). Discard and commit are separate scripts because they need a confirm / prompt.
 
 ### Commit history (`;`) and undo
 

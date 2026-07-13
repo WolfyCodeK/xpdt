@@ -23,7 +23,7 @@ while : ; do
   RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXFILES + 3)) ] && lh=$((MAXFILES + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)))\""
   LINE=$(printf '%s\n' "$ENTRIES" \
     | fzf --ansi --no-sort --reverse --disabled --no-input \
-        --header='[s] stage/unstage   [d] discard   [c] commit   [enter] open in vscode   [→] preview' \
+        --header='[s] stage/unstage  [d] discard  [c] commit  [ctrl-e] edit  [enter] vscode  [→] preview' \
         --preview "$DIFF" \
         --preview-window "down,$((TERMH - LISTH))" \
         --bind "load:transform:$RESIZE" \
@@ -31,6 +31,7 @@ while : ; do
         --bind "d:execute(sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \
         --bind "c:execute(bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
         --bind "right:execute(sh $X/diff-view.sh '$ROOT' {1} {3..})" \
+        --bind "ctrl-e:execute(cd '$ROOT' && nvim {3..})+reload($LIST)" \
         --bind 'enter:accept,left:abort')
   [ -z "$LINE" ] && exit 0
   GROUP=$(printf '%s\n' "$LINE" | awk '{print $1}')

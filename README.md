@@ -19,7 +19,7 @@ get two commands:
   theming. Detailed docs are in [`xpdt/README.md`](xpdt/README.md).
 - **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter, a
   Monokai theme colour-matched to bat, plus leap, surround, comment, lualine and
-  indent guides) that opens from the xpdt preview with `ctrl-e`.
+  indent guides) that opens from the xpdt preview or the git changes browser with `ctrl-e`.
 
 ## Install
 
