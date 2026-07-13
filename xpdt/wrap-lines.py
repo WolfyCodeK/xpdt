@@ -103,6 +103,12 @@ def main():
             rowmap.append(idx)
         rows += len(chunks)
 
+    if not out:
+        # Empty file: emit one blank gutter line (mapped to line 1) so the preview is non-empty
+        # and stays editable - fzf needs an item present for the ctrl-e edit binding to fire.
+        out.append("\x1b[90m" + "1".rjust(numw) + " │ " + RESET)
+        rowmap.append(1)
+
     sys.stdout.write("\n".join(out) + ("\n" if out else ""))
     if posfile and pos:
         try:
