@@ -1,7 +1,8 @@
 #!/bin/sh
-# Hunk browser: stage or unstage individual hunks of one file (git add -p style).
-# Opened with `p` on a focused entry in the changes browser. Args: ROOT GROUP FILE
-# GROUP is the entry's group: 'unstaged' -> stage hunks, 'staged' -> unstage hunks.
+# Hunk browser: stage / unstage / discard individual hunks of one file (git add -p
+# style). Opened with `p` on a focused entry in the changes browser.
+# Args: ROOT GROUP FILE. GROUP is the entry's group: 'unstaged' -> stage or discard
+# hunks, 'staged' -> unstage hunks.
 ROOT="$1"; GROUP="$2"; FILE="$3"
 [ -z "$ROOT" ] || [ -z "$FILE" ] && exit 0
 X="$HOME/.config/xpdt"
@@ -14,10 +15,19 @@ if [ -z "$(eval "$LIST")" ]; then
   exit 0
 fi
 
-if [ "$GROUP" = staged ]; then verb=unstage; else verb=stage; fi
+# Discard only makes sense for unstaged hunks (it reverts the working tree); it is
+# advertised in the header for that group only, though the bind is harmless either
+# way (git-hunk.sh refuses discard on a staged hunk).
+if [ "$GROUP" = staged ]; then
+  HDR="[s] unstage hunk    [←] back    $FILE ($GROUP)"
+else
+  HDR="[s] stage hunk    [d] discard hunk    [←] back    $FILE ($GROUP)"
+fi
+
 eval "$LIST" | fzf --ansi --no-sort --reverse --disabled --no-input \
-  --header="[s] $verb hunk    [←] back    $FILE ($GROUP)" \
+  --header="$HDR" \
   --preview "sh $X/git-hunk.sh show '$ROOT' $GROUP '$FILE' {1} | bat --language=diff --color=always --style=plain --paging=never" \
   --preview-window 'down,72%' \
   --bind "s:execute(sh $X/git-hunk.sh apply '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
+  --bind "d:execute(sh $X/git-hunk.sh discard '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
   --bind 'left:abort,esc:abort,q:abort' || true
