@@ -12,7 +12,7 @@ TOGGLE="transform:echo \"execute-silent(sh $X/gate.sh toggle {1})+reload($MENU)+
 
 eval "$MENU" | fzf --ansi --no-sort --reverse --cycle --disabled --no-input \
   --with-nth=2.. \
-  --prompt='confirm-gate > ' \
+  --prompt='settings > ' \
   --header='[enter/space/→] toggle    [←/esc/q] close' \
   --bind "enter:$TOGGLE" \
   --bind "space:$TOGGLE" \

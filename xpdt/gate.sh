@@ -75,6 +75,7 @@ case "${1:-}" in
   menu)
     # Rows are "key  checkbox  label"; field 1 (the key) is hidden by fzf's
     # --with-nth and used only by the toggle bind. Master off dims the actions.
+    printf 'show-hidden %s Show hidden files (dotfiles)\n' "$(box "$(get show-hidden)")"
     en=$(get enabled)
     printf '__master__ %s Require 2-digit confirmation (master switch)\n' "$(box "$en")"
     action_rows | while IFS='|' read -r k label; do

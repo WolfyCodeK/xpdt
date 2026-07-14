@@ -225,6 +225,7 @@ seed_gate_config() {
   if [ -e "$cfg" ]; then info "confirm-gate config present ($cfg)"; return 0; fi
   if {
     echo "enabled=1"
+    echo "show-hidden=1"
     for k in create move delete stage hunk discard commit undo \
       stash-apply stash-pop stash-drop stash-new stash-clear checkout pull; do
       echo "$k=1"
