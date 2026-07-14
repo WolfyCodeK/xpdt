@@ -1,6 +1,6 @@
 # xpdt config (customised xplr)
 
-A heavily customised [xplr](https://xplr.dev) (v1.1.0) file manager set up as a lightweight, keyboard driven git client and code browser. It adds a git author column, a git status column, a live changes browser (stage / unstage whole files or individual hunks / discard / commit / edit in Neovim), a commit history browser with undo, a stash browser (create / apply / pop / drop / clear), an inline full file diff viewer, recursive file and content search with a persistent scope toggle, a syntax highlighted file preview with indent aware wrapping and clipboard copy, a per-action confirmation gate (type two random digits before an action runs, on by default for every mutating action and toggleable in a settings menu), Nerd Font icons and colours, and a colour coded controls legend at the bottom of the screen.
+A heavily customised [xplr](https://xplr.dev) (v1.1.0) file manager set up as a lightweight, keyboard driven git client and code browser. It adds a git author column, a git status column, a live changes browser (stage / unstage whole files or individual hunks / discard / commit / edit in Neovim), a commit history browser with undo, a stash browser (create / apply / pop / drop / clear), an inline full file diff viewer, recursive file and content search with a persistent scope toggle, a syntax highlighted file preview with indent aware wrapping and clipboard copy, a per-action confirmation gate (type two random digits before an action runs, on by default for every mutating action and toggleable in a settings menu), Nerd Font icons and colours, and on-demand help popups (`h` for the controls, `ctrl-h` for a neovim cheat sheet).
 
 Everything lives in `~/.config/xpdt/`. `init.lua` is the entry point; the rest are small helper scripts it shells out to. It is loaded by the `xpdt` command (`xplr -c ~/.config/xpdt/init.lua`); plain `xplr` is left untouched and runs stock.
 
@@ -12,25 +12,28 @@ Everything lives in `~/.config/xpdt/`. `init.lua` is the entry point; the rest a
 2. `changes` box (`custom.render_git_changes`) listing staged and unstaged changes, auto sized to the number of changes (capped at 30 rows).
 3. `git history` box (`custom.render_git_graph`) showing the last 100 commits of the current branch. Sized responsively from the terminal height: on a short window it scales down first (to a ~3 row floor) so the file listing keeps at least ~10 rows; only once the history reaches that floor does the file listing itself start to shrink.
 4. `InputAndLogs` (xplr's built in input / log line).
-5. `controls` box (`custom.render_controls`), a colour coded key legend.
+
+The key legend is no longer an always-on panel (it ran off the side of narrow terminals). It is now an on-demand popup: `h` for the xpdt controls, `ctrl-h` for the neovim cheat sheet.
 
 ## Key bindings
 
 Main directory view:
 
-| Key     | Action                                                 |
-| ------- | ------------------------------------------------------ |
-| `↑ ↓`   | move                                                   |
-| `→`     | enter directory, or preview a file (`preview-file.sh`) |
-| `←`     | up a directory (xplr built in)                         |
-| `enter` | repo changes browser (`git-changes-browser.sh`)        |
-| `;`     | commit history browser (`git-log-browser.sh`)          |
-| `s`     | stash browser (`git-stash-browser.sh`)                 |
-| `/`     | find files by name (`search.sh files`)                 |
-| `\`     | search inside files (`search.sh content`)              |
-| `'`     | jump back to the directory xplr was opened from        |
-| `,`     | confirmation settings menu (`gate-menu.sh`)            |
-| `q`     | quit (xplr built in)                                   |
+| Key      | Action                                                 |
+| -------- | ------------------------------------------------------ |
+| `↑ ↓`    | move                                                   |
+| `→`      | enter directory, or preview a file (`preview-file.sh`) |
+| `←`      | up a directory (xplr built in)                         |
+| `enter`  | repo changes browser (`git-changes-browser.sh`)        |
+| `;`      | commit history browser (`git-log-browser.sh`)          |
+| `s`      | stash browser (`git-stash-browser.sh`)                 |
+| `/`      | find files by name (`search.sh files`)                 |
+| `\`      | search inside files (`search.sh content`)              |
+| `'`      | jump back to the directory xplr was opened from        |
+| `,`      | confirmation settings menu (`gate-menu.sh`)            |
+| `h`      | controls / help popup (`help.sh`)                      |
+| `ctrl-h` | neovim cheat sheet popup (`nvim-cheatsheet.sh`)        |
+| `q`      | quit (xplr built in)                                   |
 
 Every mutating action (create / move / delete, stage / hunk / discard / commit, stash apply / pop / drop / new / clear, undo commit, git checkout / pull) runs behind the confirmation gate: by default it asks you to type two random digits first. The `,` menu turns that off globally or per action. See Confirmation gate below.
 
@@ -72,6 +75,9 @@ Inline diff viewer: `→` previous change, `shift-→` next change, `←` back.
 | `gate-menu.sh`           | The `,` settings menu: fzf list of the master switch and each action with an `[x]` / `[ ]` checkbox; enter / space / right toggles the focused row in place.                                                                                                      |
 | `open-git-diff.sh`       | Opens a diff in VS Code with clean, ref labelled tab titles (see VS Code diff below).                                                                                                                                                                             |
 | `open-menu.sh`           | The file options menu (open in VS Code, preview / open changes, preview / open staged).                                                                                                                                                                           |
+| `help.sh`                | The `h` controls help: renders xpdt's key bindings as short vertical lines (so nothing truncates) and shows them in `popup.sh`.                                                                                                                                   |
+| `nvim-cheatsheet.sh`     | The `ctrl-h` neovim key cheat sheet, shown in `popup.sh`.                                                                                                                                                                                                         |
+| `popup.sh`               | Shared popup window: shows piped-in text in a bordered, scrollable `fzf` box (used by `help.sh` and `nvim-cheatsheet.sh`).                                                                                                                                        |
 | `preview-file.sh`        | Full screen file preview: `bat` for colour, `wrap-lines.py` for the gutter and indent aware wrap, fzf to display.                                                                                                                                                 |
 | `wrap-lines.py`          | ANSI aware, indent preserving line wrapper for the file preview. Adds the line number gutter and remaps the `\` search jump position.                                                                                                                             |
 | `search.sh`              | Backend for `/` (files, mtime sorted) and `\` (content, ripgrep). Scope aware; emits paths relative to the scope dir.                                                                                                                                             |
@@ -161,9 +167,9 @@ Scope: `scope.sh` reads / toggles `.search-scope` (`here` = current directory, `
 
 `theme.lua` sets `xplr.config.node_types`: a folder icon and blue for directories, a link icon and cyan for symlinks, and per extension icons and colours for common languages. Icons are Nerd Font glyphs, so the terminal font must be a Nerd Font (Hack Nerd Font and MesloLGS NF are known to work) or they render as boxes. To disable icons, blank the `icon` values.
 
-### Controls box
+### Help popups (`h`, `ctrl-h`)
 
-`render_controls` builds the legend programmatically and colours it with ANSI escape codes, which xplr's `CustomList` body parses. Section labels are one colour, keys another, descriptions default.
+The key legend used to be an always-on `CustomList` panel at the bottom of the screen, but its packed rows ran off the side of narrow terminals. It is now on demand: `h` runs `help.sh` and `ctrl-h` runs `nvim-cheatsheet.sh`, each of which prints coloured, sectioned, one-key-per-line text and pipes it into `popup.sh`. `popup.sh` is a small `fzf` wrapper (`--disabled --no-input`, a rounded border and a margin so it floats over the frame) that shows the text as a scrollable popup; arrows or the mouse wheel scroll, and `q` / `esc` / `left` (or the opening key again) close it. Because the layout no longer reserves those rows, the file listing and git history get the space back.
 
 ## Conventions and gotchas
 
