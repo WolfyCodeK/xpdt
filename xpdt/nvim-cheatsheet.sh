@@ -61,5 +61,5 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row ":q"         "quit"
   row ":wq"        "save and quit"
   row ":q!"        "quit without saving"
-  printf "\n  ${D}%s${Z}\n\n" "(press q to close)"
-} | less -R
+  printf "\n  ${D}%s${Z}\n" "(press q or ctrl-h to close)"
+} | sh "$HOME/.config/xpdt/popup.sh" "neovim cheat sheet"

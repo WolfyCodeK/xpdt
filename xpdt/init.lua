@@ -66,6 +66,13 @@ xplr.config.modes.builtin.default.key_bindings.on_key["s"] = {
   }
 }
 
+xplr.config.modes.builtin.default.key_bindings.on_key["h"] = {
+  help = "controls / help",
+  messages = {
+    { BashExec = "sh \"$HOME/.config/xpdt/help.sh\"" },
+  }
+}
+
 xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-h"] = {
   help = "neovim cheat sheet",
   messages = {
@@ -521,39 +528,6 @@ xplr.fn.custom.render_git_graph = function(ctx)
   return { CustomList = { ui = { title = { format = title } }, body = body } }
 end
 
-xplr.fn.custom.render_controls = function(ctx)
-  local L = "\27[38;5;110m"
-  local K = "\27[1;38;5;215m"
-  local D = "\27[38;5;245m"
-  local S = "\27[38;5;238m"
-  local Z = "\27[0m"
-  local sep = "  " .. S .. "·" .. Z .. "  "
-  local function line(label, keys)
-    local parts = {}
-    for _, kv in ipairs(keys) do
-      parts[#parts + 1] = K .. kv[1] .. Z .. " " .. D .. kv[2] .. Z
-    end
-    local padded = label .. string.rep(" ", math.max(1, 9 - #label))
-    return "  " .. L .. padded .. Z .. table.concat(parts, sep)
-  end
-  return {
-    CustomList = {
-      ui = { title = { format = " controls " } },
-      body = {
-        line("move", { { "↑↓", "navigate" }, { "→", "open/preview" }, { "←", "up dir" }, { "'", "start dir" }, { "q", "quit" } }),
-        line("open", { { "enter", "changes" }, { ";", "git log" }, { "s", "stashes" }, { "/", "find" }, { "\\", "search" }, { "g", "git menu" }, { ",", "settings" }, { "ctrl-h", "nvim" } }),
-        line("files", { { "a", "new file" }, { "f", "new folder" }, { "m", "move" }, { "d", "delete" } }),
-        line("search", { { "type", "filter" }, { "tab", "toggle scope" } }),
-        line("changes", { { "s", "stage/unstage" }, { "d", "discard" }, { "c", "commit" } }),
-        line("commits", { { "→", "open" }, { "ctrl-z", "undo last" } }),
-        line("stash", { { "a", "apply" }, { "p", "pop" }, { "d", "drop" }, { "n", "new" }, { "x", "clear all" }, { "→", "view" } }),
-        line("preview", { { "type", "search" }, { "ctrl-v", "select" }, { "ctrl-y", "copy" }, { "ctrl-e", "edit" }, { "enter", "menu" } }),
-        line("diff", { { "→", "next change" }, { "shift-→", "prev change" }, { "←", "back" } }),
-      },
-    },
-  }
-end
-
 xplr.fn.custom.render_layout = function(ctx)
   local root = repo_root_of(ctx.app.pwd)
   local n = 0
@@ -574,7 +548,7 @@ xplr.fn.custom.render_layout = function(ctx)
   local graph_height = GRAPH_MAX
   local h = ctx.layout_size and ctx.layout_size.height
   if h then
-    graph_height = h - TABLE_MIN - changes_height - 14 -- 14 = InputAndLogs(3) + controls(11)
+    graph_height = h - TABLE_MIN - changes_height - 3 -- 3 = InputAndLogs (controls are now the `h` popup)
     if graph_height > GRAPH_MAX then
       graph_height = GRAPH_MAX
     elseif graph_height < GRAPH_MIN then
@@ -590,7 +564,6 @@ xplr.fn.custom.render_layout = function(ctx)
             { Length = changes_height },
             { Length = graph_height },
             { Length = 3 },
-            { Length = 11 },
           },
         },
         splits = {
@@ -598,7 +571,6 @@ xplr.fn.custom.render_layout = function(ctx)
           { Dynamic = "custom.render_git_changes" },
           { Dynamic = "custom.render_git_graph" },
           "InputAndLogs",
-          { Dynamic = "custom.render_controls" },
         },
       },
     },
