@@ -16,6 +16,7 @@ create|create file / folder
 move|move / rename
 delete|delete file / folder
 stage|stage / unstage
+hunk|stage / unstage hunk
 discard|discard changes
 commit|commit
 undo|undo last commit
