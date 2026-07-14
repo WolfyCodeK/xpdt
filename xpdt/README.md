@@ -49,7 +49,7 @@ File / content search (`/` `\`): type to filter, `tab` toggle scope (current dir
 
 File preview: type to filter lines, `ctrl-y` copy the whole file to the clipboard, `enter` file menu (`open-menu.sh`), `←` back.
 
-Inline diff viewer: `→` previous change, `shift-→` next change, `←` back.
+Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. The focused change is kept centred on screen as you move between changes.
 
 ## Files
 
@@ -145,7 +145,7 @@ Turning a gate off means that action runs on a single key with no prompt, so the
 
 - Both the before and after versions of the file are written to temp files named after the real file (so `bat` detects the language) and syntax highlighted by `bat`.
 - `diff-render.py` reads the `git diff -U0` hunks and interleaves the two highlighted versions: context and added lines come from the after version, removed lines from the before version, each gutter coloured by type (grey / green / red). It records the display position of the start of each change block.
-- `→` and `shift-→` are bound to `transform` actions that call `diff-nav.sh`, which reads the current line index (`{n}`), finds the previous / next change block, and echoes a `pos(N)` action back to fzf to move the cursor. Both wrap around.
+- `→` and `shift-→` are bound to `transform` actions that call `diff-nav.sh`, which reads the current line index (`{n}`), finds the previous / next change block, and echoes a `pos(N)` action back to fzf to move the cursor. Both wrap around. fzf runs with `--scroll-off=9999`, which keeps the focused line vertically centred (fzf cannot honour that many context lines on both sides, so it balances them), rather than letting a jumped-to change land at the bottom edge.
 
 Before / after are `git diff --cached` / index and HEAD for staged, working file and index for unstaged, and the commit and its parent for a commit.
 
