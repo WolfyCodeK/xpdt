@@ -65,6 +65,9 @@ case "${1:-}" in
   confirm)
     action="$2"; msg="$3"
     required "$action" || exit 0
+    # Clear first so repeated prompts (and any "Cancelled." messages) show once on
+    # a clean screen instead of stacking up on the normal screen across presses.
+    printf '\033[2J\033[H' > /dev/tty 2>/dev/null
     # fzf runs execute() binds with the tty still in raw mode (and restores it
     # inconsistently), which makes the prompt render oddly and Enter arrive as a
     # bare CR that `read` never treats as end-of-line (it shows as ^M). Force the
