@@ -197,6 +197,18 @@ xplr.config.modes.builtin.default.key_bindings.on_key["'"] = {
   }
 }
 
+xplr.config.modes.builtin.default.key_bindings.on_key["w"] = {
+  help = "next git repo",
+  messages = {
+    {
+      BashExecSilently = [===[
+        next=$(sh "$HOME/.config/xpdt/next-git-repo.sh" "$PWD")
+        [ -n "$next" ] && "$XPLR" -m 'ChangeDirectory: %q' "$next"
+      ]===]
+    }
+  }
+}
+
 xplr.config.general.table.header.cols = {
   { format = " index" },
   { format = " ╭─── path" },

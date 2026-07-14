@@ -30,6 +30,7 @@ Main directory view:
 | `/`      | find files by name (`search.sh files`)                 |
 | `\`      | search inside files (`search.sh content`)              |
 | `'`      | jump back to the directory xplr was opened from        |
+| `w`      | hop to the next sibling git repo (`next-git-repo.sh`)  |
 | `,`      | settings menu (`gate-menu.sh`)                         |
 | `h`      | controls / help popup (`help.sh`)                      |
 | `ctrl-h` | neovim cheat sheet popup (`nvim-cheatsheet.sh`)        |
@@ -93,6 +94,7 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 | `diff-view.sh`           | The inline diff viewer: syntax highlights both the before and after versions with `bat` and feeds the hunks to `diff-render.py`.                                                                                                                                                                                                         |
 | `diff-render.py`         | Interleaves the before / after highlighted lines by the diff hunks into a unified view: removed lines red, added lines green, context grey, with change positions for navigation.                                                                                                                                                        |
 | `diff-nav.sh`            | Computes the next / previous change position for the diff viewer.                                                                                                                                                                                                                                                                        |
+| `next-git-repo.sh`       | For the `w` key: prints the next sibling git repo to hop to. Workspace = the parent of the current repo (or the nearest ancestor with git-repo children); cycles its immediate git-repo subdirectories, wrapping.                                                                                                                        |
 | `.gate-config`           | State file for the confirmation gate: `enabled=1/0` plus one `<action>=1/0` line per action. Absent file or key reads as on. Seeded all-on by the installer. Not code.                                                                                                                                                                   |
 | `.search-scope`          | State file holding the current search scope. Persists across sessions. Not code.                                                                                                                                                                                                                                                         |
 
@@ -114,6 +116,10 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 ### .xplrignore
 
 `custom.apply_xplrignore` (run on load and on directory change) reads a `.xplrignore` file in the current directory. Lines beginning with `!` are kept (whitelist), other lines are hidden. This is used to show only the relevant top level folders when xplr is opened at a directory that contains several repos.
+
+### Switching between git repos (`w`)
+
+When a directory holds several git repos side by side (say `work/project1` and `work/project2`), `w` hops straight to the top of the next one. `next-git-repo.sh` works out the "workspace": if you are inside a repo it is that repo's parent, otherwise it is the nearest ancestor of the current directory that has git-repo children. It lists that workspace's immediate subdirectories that are git repos (sorted), finds where the current repo sits, and prints the next one (wrapping); from outside any of them it prints the first. The keybinding feeds that path to `xplr -m 'ChangeDirectory'`, so each press lands you at the top of a repo, and xplr's `on_directory_change` refreshes the git panels for it.
 
 ### Changes browser (`enter`)
 

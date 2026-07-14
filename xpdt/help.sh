@@ -12,6 +12,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "right" "enter directory / preview file"
   row "left" "up a directory"
   row "'" "jump back to the start directory"
+  row "w" "hop to the next sibling git repo (its top)"
   row "q" "quit"
   sec "OPEN"
   row "enter" "repo changes browser"
