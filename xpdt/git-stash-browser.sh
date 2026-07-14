@@ -39,4 +39,4 @@ eval "$LIST" \
       --bind "x:execute(sh $X/git-stash-op.sh '$ROOT' clear)+reload($LIST)" \
       --bind "enter:execute([ -n {1} ] && $VIEW | less -R)" \
       --bind "right:execute([ -n {1} ] && $VIEW | less -R)" \
-      --bind 'left:abort'
+      --bind 'left:abort' || true

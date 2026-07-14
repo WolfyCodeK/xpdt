@@ -20,4 +20,4 @@ eval "$LIST" | fzf --ansi --no-sort --reverse --disabled --no-input \
   --preview "sh $X/git-hunk.sh show '$ROOT' $GROUP '$FILE' {1} | bat --language=diff --color=always --style=plain --paging=never" \
   --preview-window 'down,72%' \
   --bind "s:execute(sh $X/git-hunk.sh apply '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
-  --bind 'left:abort,esc:abort,q:abort'
+  --bind 'left:abort,esc:abort,q:abort' || true
