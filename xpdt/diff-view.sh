@@ -33,6 +33,7 @@ FIRST=$(awk '{print $1}' "$CHGPOSF" 2>/dev/null)
 POSBIND=""
 [ -n "$FIRST" ] && POSBIND="--bind load:pos($FIRST)"
 printf '%s\n' "$RENDERED" | fzf --ansi --no-sort --disabled --reverse --prompt="$BASE > " \
+  --scroll-off=9999 \
   $POSBIND \
   --header='[→] next change    [shift-→] prev change    [←] back' \
   --bind "right:transform:sh $X/diff-nav.sh next {n} '$CHGPOSF'" \
