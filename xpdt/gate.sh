@@ -65,6 +65,12 @@ case "${1:-}" in
   confirm)
     action="$2"; msg="$3"
     required "$action" || exit 0
+    # fzf runs execute() binds with the tty still in raw mode (and restores it
+    # inconsistently), which makes the prompt render oddly and Enter arrive as a
+    # bare CR that `read` never treats as end-of-line (it shows as ^M). Force the
+    # tty back to a sane cooked mode so the prompt reads normally; fzf re-applies
+    # its own mode when the bind returns.
+    stty sane < /dev/tty 2>/dev/null
     c=$(python3 -c 'import random; print(random.randint(10, 99))')
     { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
     python3 -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
