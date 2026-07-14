@@ -21,10 +21,9 @@ local function read_bool_setting(key, default)
 end
 
 -- Showing hidden files (dotfiles) is a setting toggled in the `,` menu, not a
--- runtime key. It is read here at load; custom.apply_show_hidden re-applies it
--- live when the settings menu closes.
-local show_hidden_current = read_bool_setting("show-hidden", true)
-xplr.config.general.show_hidden = show_hidden_current
+-- runtime key. xplr 1.1.0 has no runtime message to change show_hidden, so it is
+-- read here at load and a toggle takes effect on the next launch.
+xplr.config.general.show_hidden = read_bool_setting("show-hidden", true)
 
 xplr.config.layouts.builtin.default = { Dynamic = "custom.render_layout" }
 
@@ -108,7 +107,6 @@ xplr.config.modes.builtin.default.key_bindings.on_key[","] = {
   help = "settings",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/gate-menu.sh\"" },
-    { CallLua = "custom.apply_show_hidden" },
   }
 }
 
@@ -478,18 +476,6 @@ end
 
 xplr.fn.custom.clear_xplrignore_flag = function()
   xplrignore_active = false
-end
-
--- Re-read the show-hidden setting after the `,` menu closes and, if it changed,
--- apply it live with ToggleHidden. show_hidden_current tracks the runtime state
--- (nothing else changes it now that `.` is unbound), so we only toggle on a real
--- change.
-xplr.fn.custom.apply_show_hidden = function()
-  local desired = read_bool_setting("show-hidden", true)
-  if desired ~= show_hidden_current then
-    show_hidden_current = desired
-    return { "ToggleHidden" }
-  end
 end
 
 xplr.fn.custom.render_git_changes = function(ctx)

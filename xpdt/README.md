@@ -148,7 +148,7 @@ Every mutating action is guarded by a "type two random digits to confirm" gate, 
 
 Turning a gate off means that action runs on a single key with no prompt, so the master switch off is genuinely "no confirmations anywhere" - the default is deliberately the safe one.
 
-The `,` menu also holds a display setting that is not a gate: **show hidden files** (dotfiles). It is stored in the same `.gate-config` (`show-hidden=1/0`, absent = on), read at startup by `init.lua` (`read_bool_setting`), and applied live when you close the menu: `custom.apply_show_hidden` re-reads the value and issues `ToggleHidden` if it changed (tracking the current state in a Lua upvalue). This replaces xplr's built-in `.` toggle, which xpdt now unbinds, so hidden-file visibility is a deliberate, persisted setting rather than an accidental keypress.
+The `,` menu also holds a display setting that is not a gate: **show hidden files** (dotfiles). It is stored in the same `.gate-config` (`show-hidden=1/0`, absent = on) and read at startup by `init.lua` (`read_bool_setting`) to set `general.show_hidden`. xplr 1.1.0 has no runtime message to change `show_hidden` (there is no `ToggleHidden`), so a toggle in the menu takes effect on the next launch rather than live. This replaces xplr's built-in `.` toggle, which xpdt now unbinds, so hidden-file visibility is a deliberate, persisted setting rather than an accidental keypress.
 
 ### Inline diff viewer
 
