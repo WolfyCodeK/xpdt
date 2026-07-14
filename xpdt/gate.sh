@@ -20,6 +20,7 @@ hunk|stage / unstage hunk
 discard|discard changes
 commit|commit
 undo|undo last commit
+cherry-pick|cherry-pick commit
 stash-apply|stash: apply
 stash-pop|stash: pop
 stash-drop|stash: drop
