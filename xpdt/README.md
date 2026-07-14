@@ -30,7 +30,7 @@ Main directory view:
 | `/`      | find files by name (`search.sh files`)                 |
 | `\`      | search inside files (`search.sh content`)              |
 | `'`      | jump back to the directory xplr was opened from        |
-| `,`      | confirmation settings menu (`gate-menu.sh`)            |
+| `,`      | settings menu (`gate-menu.sh`)                         |
 | `h`      | controls / help popup (`help.sh`)                      |
 | `ctrl-h` | neovim cheat sheet popup (`nvim-cheatsheet.sh`)        |
 | `q`      | quit (xplr built in)                                   |
@@ -138,6 +138,8 @@ Every mutating action is guarded by a "type two random digits to confirm" gate, 
 - `,` opens `gate-menu.sh`: an fzf list (lazygit style, `--disabled --no-input`) of the master switch and every action with an `[x]` / `[ ]` checkbox. `enter` / `space` / `→` toggle the focused row via `gate.sh toggle` and reload in place; `←` / `esc` / `q` close. The action key is field 1 of each row, hidden with `--with-nth=2..` and used only by the toggle bind. With the master switch off the action rows are shown dimmed.
 
 Turning a gate off means that action runs on a single key with no prompt, so the master switch off is genuinely "no confirmations anywhere" - the default is deliberately the safe one.
+
+The `,` menu also holds a display setting that is not a gate: **show hidden files** (dotfiles). It is stored in the same `.gate-config` (`show-hidden=1/0`, absent = on), read at startup by `init.lua` (`read_bool_setting`), and applied live when you close the menu: `custom.apply_show_hidden` re-reads the value and issues `ToggleHidden` if it changed (tracking the current state in a Lua upvalue). This replaces xplr's built-in `.` toggle, which xpdt now unbinds, so hidden-file visibility is a deliberate, persisted setting rather than an accidental keypress.
 
 ### Inline diff viewer
 

@@ -1,6 +1,30 @@
 version = "1.1.0"
 
-xplr.config.general.show_hidden = true
+-- Persisted xpdt settings live in ~/.config/xpdt/.gate-config as key=1/0 lines
+-- (the confirmation-gate keys use the same file; see gate.sh). An absent file or
+-- key reads as the default.
+local function read_bool_setting(key, default)
+  local f = io.open(os.getenv("HOME") .. "/.config/xpdt/.gate-config", "r")
+  if not f then
+    return default
+  end
+  local result = default
+  local pat = "^" .. key:gsub("%-", "%%-") .. "=(%d)"
+  for line in f:lines() do
+    local v = line:match(pat)
+    if v then
+      result = (v == "1")
+    end
+  end
+  f:close()
+  return result
+end
+
+-- Showing hidden files (dotfiles) is a setting toggled in the `,` menu, not a
+-- runtime key. It is read here at load; custom.apply_show_hidden re-applies it
+-- live when the settings menu closes.
+local show_hidden_current = read_bool_setting("show-hidden", true)
+xplr.config.general.show_hidden = show_hidden_current
 
 xplr.config.layouts.builtin.default = { Dynamic = "custom.render_layout" }
 
@@ -81,11 +105,16 @@ xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-h"] = {
 }
 
 xplr.config.modes.builtin.default.key_bindings.on_key[","] = {
-  help = "confirmation settings",
+  help = "settings",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/gate-menu.sh\"" },
+    { CallLua = "custom.apply_show_hidden" },
   }
 }
+
+-- Showing hidden files is a setting (the `,` menu), not a runtime toggle; unbind
+-- xplr's default `.` so it cannot flip them by accident.
+xplr.config.modes.builtin.default.key_bindings.on_key["."] = nil
 
 xplr.config.modes.builtin.default.key_bindings.on_key["right"] = {
   help = "enter dir or preview file",
@@ -449,6 +478,18 @@ end
 
 xplr.fn.custom.clear_xplrignore_flag = function()
   xplrignore_active = false
+end
+
+-- Re-read the show-hidden setting after the `,` menu closes and, if it changed,
+-- apply it live with ToggleHidden. show_hidden_current tracks the runtime state
+-- (nothing else changes it now that `.` is unbound), so we only toggle on a real
+-- change.
+xplr.fn.custom.apply_show_hidden = function()
+  local desired = read_bool_setting("show-hidden", true)
+  if desired ~= show_hidden_current then
+    show_hidden_current = desired
+    return { "ToggleHidden" }
+  end
 end
 
 xplr.fn.custom.render_git_changes = function(ctx)
