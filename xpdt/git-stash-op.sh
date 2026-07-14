@@ -8,6 +8,10 @@ ROOT="$1"; OP="$2"; REF="$3"
 GATE="$HOME/.config/xpdt/gate.sh"
 pause() { printf '\n[enter to continue] ' > /dev/tty; read -r _ < /dev/tty; }
 
+# Clear the normal screen first, so transient messages (e.g. "Nothing to stash")
+# and git output show once per press instead of piling up across repeated ops.
+printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+
 case "$OP" in
   push)
     if [ -z "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]; then
