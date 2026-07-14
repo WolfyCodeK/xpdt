@@ -5,6 +5,8 @@
 # hunks, 'staged' -> unstage hunks.
 ROOT="$1"; GROUP="$2"; FILE="$3"
 [ -z "$ROOT" ] || [ -z "$FILE" ] && exit 0
+# Clear leftover output (e.g. confirmation prompts) before this browser paints.
+printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 X="$HOME/.config/xpdt"
 LIST="sh $X/git-hunk.sh list '$ROOT' $GROUP '$FILE'"
 

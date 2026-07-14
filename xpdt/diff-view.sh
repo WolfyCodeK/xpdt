@@ -1,6 +1,10 @@
 #!/bin/sh
 ROOT="$1"; MODE="$2"; FILE="$3"; HASH="$4"
 [ -z "$ROOT" ] || [ -z "$FILE" ] && exit 0
+# Clear the screen before the (bat + diff-render) setup, so leftover output from a
+# prior action in the same fzf session (e.g. confirmation prompts) does not flash
+# on the normal screen while the viewer prepares its content.
+printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 BASE=$(basename "$FILE")
 case "$MODE" in
   staged)

@@ -8,6 +8,8 @@ COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=100
 TMP=$(mktemp); POSF=$(mktemp); PORTF=$(mktemp); MAPF=$(mktemp); MARKF=$(mktemp)
 LASTPOSF=$(mktemp); QLENF=$(mktemp)
+# Clear leftover output (e.g. a prior confirmation prompt) before the preview paints.
+printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$F" \
   | W=$((COLS - 4)) HL="$XPLR_PREVIEW_LINE" POSFILE="$POSF" MAPFILE="$MAPF" python3 "$HOME/.config/xpdt/wrap-lines.py" > "$TMP"
 POSBIND=""
