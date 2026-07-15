@@ -68,7 +68,9 @@ case "${1:-}" in
     required "$action" || exit 0
     # Clear first so repeated prompts (and any "Cancelled." messages) show once on
     # a clean screen instead of stacking up on the normal screen across presses.
-    printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+    # \033[?25h re-shows the cursor (fzf/xplr hide it and do not restore it for the
+    # read), so there is a visible caret while typing.
+    printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
     # fzf runs execute() binds with the tty still in raw mode (and restores it
     # inconsistently), which makes the prompt render oddly and Enter arrive as a
     # bare CR that `read` never treats as end-of-line (it shows as ^M). Force the
