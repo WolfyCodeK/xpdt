@@ -35,7 +35,7 @@ RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- '$F' | W=$((CO
 WATCHER=$!
 fzf --ansi --no-sort --exact --reverse --wrap --listen --prompt="$BASE > " \
     $POSBIND \
-    --header='type to search    [ctrl-v] select    [ctrl-y] copy    [ctrl-e] edit    [enter] menu    [←] back' \
+    --header="$(sh "$HOME/.config/xpdt/wrap-header.sh" 'type to search    [ctrl-v] select    [ctrl-y] copy    [ctrl-e] edit    [enter] menu    [←] back')" \
     --bind "start:execute-silent(echo \$FZF_PORT > '$PORTF')" \
     --bind "result:transform:sh '$HOME/.config/xpdt/preview-track.sh' '$LASTPOSF' '$QLENF' {n} {q}" \
     --bind 'left:abort' \

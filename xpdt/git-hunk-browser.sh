@@ -27,7 +27,7 @@ else
 fi
 
 eval "$LIST" | fzf --ansi --no-sort --reverse --disabled --no-input \
-  --header="$HDR" \
+  --header="$(sh $X/wrap-header.sh "$HDR")" \
   --preview "sh $X/git-hunk.sh show '$ROOT' $GROUP '$FILE' {1} | bat --language=diff --color=always --style=plain --paging=never" \
   --preview-window 'down,72%' \
   --bind "s:execute(sh $X/git-hunk.sh apply '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
