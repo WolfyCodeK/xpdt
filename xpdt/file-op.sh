@@ -10,7 +10,9 @@ esac
 GATE="$HOME/.config/xpdt/gate.sh"
 flush() { python3 -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' 2>/dev/null; }
 
-printf '\n'
+# Clear leftover output and re-show the cursor (xplr hides it) so the name prompt
+# is typed on a clean screen with a visible caret.
+printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
 case "$OP" in
   newfile)
     printf 'New file name (empty cancels): '

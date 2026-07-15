@@ -10,7 +10,8 @@ pause() { printf '\n[enter to continue] ' > /dev/tty; read -r _ < /dev/tty; }
 
 # Clear the normal screen first, so transient messages (e.g. "Nothing to stash")
 # and git output show once per press instead of piling up across repeated ops.
-printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+# \033[?25h re-shows the cursor (fzf hides it) so the stash-message prompt has a caret.
+printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
 
 case "$OP" in
   push)
