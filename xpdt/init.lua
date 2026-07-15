@@ -548,12 +548,14 @@ xplr.fn.custom.render_git_graph = function(ctx)
       bh:close()
     end
     local ab = ""
+    local has_upstream = false
     local abh = io.popen('git -C "' .. root .. '" rev-list --left-right --count "@{u}...HEAD" 2>/dev/null')
     if abh then
       local counts = abh:read("*a"):gsub("%s+$", "")
       abh:close()
       local behind, ahead = counts:match("^(%d+)%s+(%d+)$")
       if ahead and behind then
+        has_upstream = true
         local parts = {}
         if tonumber(ahead) > 0 then
           parts[#parts + 1] = "↑" .. ahead
@@ -566,11 +568,30 @@ xplr.fn.custom.render_git_graph = function(ctx)
         end
       end
     end
+    -- Commits ahead of the upstream are local (not yet pushed): mark them with a
+    -- hollow yellow dot, and pushed commits with the usual filled dot. With no
+    -- upstream we cannot tell, so every commit keeps the plain filled dot.
+    local unpushed = {}
+    if has_upstream then
+      local uh = io.popen('git -C "' .. root .. '" rev-list "@{u}..HEAD" 2>/dev/null')
+      if uh then
+        for sha in uh:lines() do
+          unpushed[sha] = true
+        end
+        uh:close()
+      end
+    end
     local lines = {}
-    local lh = io.popen('git -C "' .. root .. '" log --format="● %s  %an" -n 100 2>/dev/null')
+    local lh = io.popen('git -C "' .. root .. '" log --format="%H%x09%s%x09%an" -n 100 2>/dev/null')
     if lh then
       for line in lh:lines() do
-        lines[#lines + 1] = line
+        local sha, rest = line:match("^(%x+)\t(.*)$")
+        if sha then
+          local marker = unpushed[sha] and "\27[33m○\27[0m" or "●"
+          lines[#lines + 1] = marker .. " " .. rest:gsub("\t", "  ")
+        else
+          lines[#lines + 1] = line
+        end
       end
       lh:close()
     end
