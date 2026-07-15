@@ -4,11 +4,11 @@
 # keys are actions, not filter text. Field 1 of each row is the hidden action key.
 X="$HOME/.config/xpdt"
 MENU="sh $X/gate.sh menu"
-# Toggle the focused row and reload the list in place. A plain reload() resets
-# the cursor to the top; wrapping it in a transform lets us capture the current
-# position and restore it with pos($FZF_POS) afterwards, so you stay on the row
-# you just toggled (the rows never change order or count).
-TOGGLE="transform:echo \"execute-silent(sh $X/gate.sh toggle {1})+reload($MENU)+pos(\$FZF_POS)\""
+# Toggle the focused row and reload the list in place, staying on that row.
+# gate-toggle.sh does the toggle and emits `reload-sync(...)+pos({n}+1)`; the
+# sync reload rebuilds the list before pos() runs, so the cursor does not jump to
+# the top. (See gate-toggle.sh for why a plain async reload would jump.)
+TOGGLE="transform:sh $X/gate-toggle.sh {1} {n}"
 
 eval "$MENU" | fzf --ansi --no-sort --reverse --cycle --disabled --no-input \
   --with-nth=2.. \
