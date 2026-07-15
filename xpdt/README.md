@@ -10,8 +10,9 @@ Everything lives in `~/.config/xpdt/`. `init.lua` is the entry point; the rest a
 
 1. `Table` (the file listing) with custom columns: index, path (tree + icon + name), a one char git modified dot (`M`), git author, size, modified time.
 2. `changes` box (`custom.render_git_changes`) listing staged and unstaged changes, auto sized to the number of changes (capped at 30 rows).
-3. `git history` box (`custom.render_git_graph`) showing the last 100 commits of the current branch. Sized responsively from the terminal height: on a short window it scales down first (to a ~3 row floor) so the file listing keeps at least ~10 rows; only once the history reaches that floor does the file listing itself start to shrink.
-4. `InputAndLogs` (xplr's built in input / log line).
+3. `git history` box (`custom.render_git_graph`) showing the last 100 commits of the current branch. Each commit is prefixed with a filled dot (`●`) if it is on the upstream (pushed) or a hollow yellow dot (`○`) if it is local - ahead of the upstream and not yet pushed (with no upstream, every commit keeps the plain dot). Sized responsively from the terminal height: on a short window it scales down first (to a ~3 row floor) so the file listing keeps at least ~10 rows; only once the history reaches that floor does the file listing itself start to shrink.
+4. `claude` box (`custom.render_claude`), only present when the `claude-integration` setting is on and a Claude Code session is active in the repo (otherwise 0 height / hidden). See Claude session indicator below.
+5. `InputAndLogs` (xplr's built in input / log line).
 
 The key legend is no longer an always-on panel (it ran off the side of narrow terminals). It is now an on-demand popup: `h` for the xpdt controls, `ctrl-h` for the neovim cheat sheet.
 
@@ -115,6 +116,10 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 ### Git modified column and status
 
 `custom.git_modified` shows a coloured dot when a path is dirty. It reads `git_status`, which caches `git status --porcelain` per repo root with a 1 second TTL. The changes box (`render_git_changes`) and the browser reuse the same porcelain parse.
+
+### Git history: local vs pushed commits
+
+`render_git_graph` marks each commit in the history box by whether it is on the remote. It computes the unpushed set once (per `GIT_LOG_TTL` cache refresh) with `git rev-list @{u}..HEAD` - the commits ahead of the branch's upstream - and logs with `git log --format="%H%x09%s%x09%an"` so it has each full sha to test against that set. Commits in the set get a hollow yellow dot (`○`, local / not pushed); the rest get the plain filled dot (`●`, on the upstream). If the branch has no upstream (`@{u}` fails), the set stays empty and every commit keeps the filled dot. This is the per-commit companion to the `↑ahead ↓behind` counts already shown in the panel title.
 
 ### .xplrignore
 
