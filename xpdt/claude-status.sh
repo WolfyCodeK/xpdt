@@ -59,5 +59,5 @@ if count:
     label = ", ".join(branches[:3])
     if count > 1:
         label = str(count) + " sessions · " + label
-    sys.stdout.write(M + "◆ claude" + Z + " " + D + "· " + label + Z)
+    sys.stdout.write(M + "◆" + Z + " " + D + label + Z)
 '
