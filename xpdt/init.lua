@@ -255,9 +255,11 @@ local git_author_dir_done = {}
 local git_status_cache = {}
 local repo_root_cache = {}
 local git_log_cache = {}
+local claude_cache = {}
 
 local STATUS_TTL = 1
 local GIT_LOG_TTL = 5
+local CLAUDE_TTL = 5
 local xplrignore_active = false
 
 local function dir_of(path)
@@ -507,6 +509,30 @@ xplr.fn.custom.render_git_changes = function(ctx)
   return { CustomList = { ui = { title = { format = " changes " } }, body = body } }
 end
 
+-- Passive Claude Code session indicator for the git-history panel: a short line
+-- (marker + branch) shown when a session has recently been active in this repo.
+-- Off unless the claude-integration setting is on - when off it returns "" without
+-- spawning anything. Cached per repo (CLAUDE_TTL). claude-status.sh does the scan
+-- of ~/.claude/projects.
+local function claude_indicator(root)
+  if not root or not read_bool_setting("claude-integration", false) then
+    return ""
+  end
+  local now = now_secs()
+  local cached = claude_cache[root]
+  if cached and (now - cached.time) < CLAUDE_TTL then
+    return cached.text
+  end
+  local text = ""
+  local handle = io.popen('sh "' .. os.getenv("HOME") .. '/.config/xpdt/claude-status.sh" "' .. root .. '" 2>/dev/null')
+  if handle then
+    text = handle:read("*a"):gsub("%s+$", "")
+    handle:close()
+  end
+  claude_cache[root] = { time = now, text = text }
+  return text
+end
+
 xplr.fn.custom.render_git_graph = function(ctx)
   local root = repo_root_of(ctx.app.pwd)
   if not root then
@@ -556,6 +582,14 @@ xplr.fn.custom.render_git_graph = function(ctx)
     title = " git history (" .. cached.branch .. (cached.ab or "") .. ") "
   end
   local body = cached.lines
+  local ci = claude_indicator(root)
+  if ci ~= "" then
+    local nb = { ci }
+    for _, l in ipairs(cached.lines) do
+      nb[#nb + 1] = l
+    end
+    body = nb
+  end
   local max = ctx.layout_size.height
   if max and max > 0 and #body > max then
     local sliced = {}
