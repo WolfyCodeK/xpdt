@@ -31,10 +31,16 @@ pull|git: pull
 EOF
 }
 
-get() { # get KEY -> 1 (on, the default) or 0 (off)
-  [ -f "$CFG" ] || { echo 1; return; }
-  v=$(sed -n "s/^$1=//p" "$CFG" 2>/dev/null | head -n1)
-  case "$v" in 0) echo 0 ;; *) echo 1 ;; esac
+get() { # get KEY -> 1 (on) or 0 (off). Confirmation actions and show-hidden default
+        # on; claude-integration is opt-in and defaults off.
+  if [ -f "$CFG" ]; then
+    v=$(sed -n "s/^$1=//p" "$CFG" 2>/dev/null | head -n1)
+    case "$v" in 0) echo 0; return ;; 1) echo 1; return ;; esac
+  fi
+  case "$1" in
+    claude-integration) echo 0 ;;
+    *) echo 1 ;;
+  esac
 }
 
 ensure_cfg() { # materialise an all-on config the first time one is needed
@@ -88,6 +94,7 @@ case "${1:-}" in
     # Rows are "key  checkbox  label"; field 1 (the key) is hidden by fzf's
     # --with-nth and used only by the toggle bind. Master off dims the actions.
     printf 'show-hidden %s Show hidden files (dotfiles) - applies on next launch\n' "$(box "$(get show-hidden)")"
+    printf 'claude-integration %s Claude session indicator in the git history panel\n' "$(box "$(get claude-integration)")"
     en=$(get enabled)
     printf '__master__ %s Require 2-digit confirmation (master switch)\n' "$(box "$en")"
     action_rows | while IFS='|' read -r k label; do

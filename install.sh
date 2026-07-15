@@ -226,6 +226,7 @@ seed_gate_config() {
   if {
     echo "enabled=1"
     echo "show-hidden=1"
+    echo "claude-integration=0"
     for k in create move delete stage hunk discard commit undo cherry-pick \
       stash-apply stash-pop stash-drop stash-new stash-clear checkout pull; do
       echo "$k=1"
