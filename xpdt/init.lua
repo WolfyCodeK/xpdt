@@ -582,14 +582,6 @@ xplr.fn.custom.render_git_graph = function(ctx)
     title = " git history (" .. cached.branch .. (cached.ab or "") .. ") "
   end
   local body = cached.lines
-  local ci = claude_indicator(root)
-  if ci ~= "" then
-    local nb = { ci }
-    for _, l in ipairs(cached.lines) do
-      nb[#nb + 1] = l
-    end
-    body = nb
-  end
   local max = ctx.layout_size.height
   if max and max > 0 and #body > max then
     local sliced = {}
@@ -599,6 +591,21 @@ xplr.fn.custom.render_git_graph = function(ctx)
     body = sliced
   end
   return { CustomList = { ui = { title = { format = title } }, body = body } }
+end
+
+-- The `claude` box below git history: shows the active-session indicator when the
+-- claude-integration setting is on and a session is active in this repo; empty
+-- (and given 0 height by render_layout) otherwise.
+xplr.fn.custom.render_claude = function(ctx)
+  local root = repo_root_of(ctx.app.pwd)
+  local ci = root and claude_indicator(root) or ""
+  local body = {}
+  if ci ~= "" then
+    for line in (ci .. "\n"):gmatch("(.-)\n") do
+      body[#body + 1] = line
+    end
+  end
+  return { CustomList = { ui = { title = { format = " claude " } }, body = body } }
 end
 
 xplr.fn.custom.render_layout = function(ctx)
@@ -614,6 +621,18 @@ xplr.fn.custom.render_layout = function(ctx)
       changes_height = 30
     end
   end
+  -- The claude box is only present (and only takes rows) when the indicator has content.
+  local claude_height = 0
+  if root then
+    local ci = claude_indicator(root)
+    if ci ~= "" then
+      local nc = 1
+      for _ in ci:gmatch("\n") do
+        nc = nc + 1
+      end
+      claude_height = nc + 2
+    end
+  end
   -- Git history yields vertical space before the file explorer: when the window is short the
   -- history graph shrinks (down to GRAPH_MIN rows) while the file-explorer Table keeps at least
   -- TABLE_MIN rows. Only once the history is at its floor does the Table itself start to shrink.
@@ -621,7 +640,7 @@ xplr.fn.custom.render_layout = function(ctx)
   local graph_height = GRAPH_MAX
   local h = ctx.layout_size and ctx.layout_size.height
   if h then
-    graph_height = h - TABLE_MIN - changes_height - 3 -- 3 = InputAndLogs (controls are now the `h` popup)
+    graph_height = h - TABLE_MIN - changes_height - claude_height - 3 -- 3 = InputAndLogs (controls are the `h` popup)
     if graph_height > GRAPH_MAX then
       graph_height = GRAPH_MAX
     elseif graph_height < GRAPH_MIN then
@@ -636,6 +655,7 @@ xplr.fn.custom.render_layout = function(ctx)
             { Min = 1 },
             { Length = changes_height },
             { Length = graph_height },
+            { Length = claude_height },
             { Length = 3 },
           },
         },
@@ -643,6 +663,7 @@ xplr.fn.custom.render_layout = function(ctx)
           "Table",
           { Dynamic = "custom.render_git_changes" },
           { Dynamic = "custom.render_git_graph" },
+          { Dynamic = "custom.render_claude" },
           "InputAndLogs",
         },
       },
