@@ -13,7 +13,7 @@ TOGGLE="transform:sh $X/gate-toggle.sh {1} {n}"
 eval "$MENU" | fzf --ansi --no-sort --reverse --cycle --disabled --no-input \
   --with-nth=2.. \
   --prompt='settings > ' \
-  --header='[enter/space/→] toggle    [←/esc/q] close' \
+  --header="$(sh $X/wrap-header.sh '[enter/space/→] toggle    [←/esc/q] close')" \
   --bind "enter:$TOGGLE" \
   --bind "space:$TOGGLE" \
   --bind "right:$TOGGLE" \

@@ -39,7 +39,7 @@ POSBIND=""
 printf '%s\n' "$RENDERED" | fzf --ansi --no-sort --disabled --reverse --prompt="$BASE > " \
   --scroll-off=9999 \
   $POSBIND \
-  --header='[→] next change    [shift-→] prev change    [←] back' \
+  --header="$(sh $X/wrap-header.sh '[→] next change    [shift-→] prev change    [←] back')" \
   --bind "right:transform:sh $X/diff-nav.sh next {n} '$CHGPOSF'" \
   --bind "shift-right:transform:sh $X/diff-nav.sh prev {n} '$CHGPOSF'" \
   --bind 'left:abort' \

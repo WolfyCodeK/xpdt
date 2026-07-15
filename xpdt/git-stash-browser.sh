@@ -28,7 +28,7 @@ RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXLIST + 3)) ] && lh=$((MAX
 
 eval "$LIST" \
   | fzf --ansi --no-sort --reverse --disabled --no-input \
-      --header='[a] apply  [p] pop  [d] drop  [n] new  [x] clear all  [enter/→] view  [←] back' \
+      --header="$(sh $X/wrap-header.sh '[a] apply  [p] pop  [d] drop  [n] new  [x] clear all  [enter/→] view  [←] back')" \
       --preview "$PREVIEW" \
       --preview-window "down,$((TERMH - LISTH))" \
       --bind "load:transform:$RESIZE" \

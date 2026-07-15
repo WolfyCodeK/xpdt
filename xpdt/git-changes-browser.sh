@@ -23,7 +23,7 @@ while : ; do
   RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXFILES + 3)) ] && lh=$((MAXFILES + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)))\""
   LINE=$(printf '%s\n' "$ENTRIES" \
     | fzf --ansi --no-sort --reverse --disabled --no-input \
-        --header='[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [ctrl-e] edit  [enter] vscode  [→] preview' \
+        --header="$(sh $X/wrap-header.sh '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [ctrl-e] edit  [enter] vscode  [→] preview')" \
         --preview "$DIFF" \
         --preview-window "down,$((TERMH - LISTH))" \
         --bind "load:transform:$RESIZE" \
