@@ -19,13 +19,13 @@ while : ; do
   [ "$LISTH" -gt $((MAXFILES + 3)) ] && LISTH=$((MAXFILES + 3))
   [ "$LISTH" -gt "$MAXLIST" ] && LISTH="$MAXLIST"
   [ "$LISTH" -lt 4 ] && LISTH=4
-  DIFF="if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=always -- {3..}; else git -C '$ROOT' diff --color=always -- {3..}; fi"
-  RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXFILES + 3)) ] && lh=$((MAXFILES + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)))\""
+  DIFF="{ if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=never -- {3..}; else git -C '$ROOT' diff --color=never -- {3..}; fi; } | python3 '$X/diff-words.py'"
+  RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXFILES + 3)) ] && lh=$((MAXFILES + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)),wrap)\""
   LINE=$(printf '%s\n' "$ENTRIES" \
     | fzf --ansi --no-sort --reverse --disabled --no-input \
         --header="$(sh $X/wrap-header.sh '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [ctrl-e] edit  [enter] vscode  [→] preview')" \
         --preview "$DIFF" \
-        --preview-window "down,$((TERMH - LISTH))" \
+        --preview-window "down,$((TERMH - LISTH)),wrap" \
         --bind "load:transform:$RESIZE" \
         --bind "s:execute(sh $X/git-stage.sh '$ROOT' {1} {3..})+reload($LIST)" \
         --bind "d:execute(sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \

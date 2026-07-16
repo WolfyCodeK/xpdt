@@ -22,15 +22,15 @@ LISTH=$((NENTRIES + 3)); MAXH=$((TERMH - 10))
 [ "$LISTH" -lt 4 ] && LISTH=4
 # {1} is the stash ref; empty when there are no stashes, so guard every action
 # and show a hint in the preview instead of a git error.
-VIEW="git -C '$ROOT' stash show -p --stat --color=always {1}"
+VIEW="git -C '$ROOT' stash show -p --color=never {1} | python3 '$X/diff-words.py'"
 PREVIEW="[ -n {1} ] && $VIEW || echo 'No stashes. Press n to stash your current changes.'"
-RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXLIST + 3)) ] && lh=$((MAXLIST + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)))\""
+RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXLIST + 3)) ] && lh=$((MAXLIST + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)),wrap)\""
 
 eval "$LIST" \
   | fzf --ansi --no-sort --reverse --disabled --no-input \
       --header="$(sh $X/wrap-header.sh '[a] apply  [p] pop  [d] drop  [n] new  [x] clear all  [enter/→] view  [←] back')" \
       --preview "$PREVIEW" \
-      --preview-window "down,$((TERMH - LISTH))" \
+      --preview-window "down,$((TERMH - LISTH)),wrap" \
       --bind "load:transform:$RESIZE" \
       --bind "a:execute([ -n {1} ] && sh $X/git-stash-op.sh '$ROOT' apply {1})+reload($LIST)" \
       --bind "p:execute([ -n {1} ] && sh $X/git-stash-op.sh '$ROOT' pop {1})+reload($LIST)" \

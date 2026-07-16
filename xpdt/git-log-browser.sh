@@ -13,8 +13,8 @@ while : ; do
   LINE=$(eval "$LOG" \
     | fzf --ansi --reverse --prompt='commit > ' \
         --header="$(eval "$HDR")" \
-        --preview "git -C '$ROOT' show --stat --color=always {1}" \
-        --preview-window 'down,50%' \
+        --preview "git -C '$ROOT' show --color=never {1} | python3 '$X/diff-words.py'" \
+        --preview-window 'down,50%,wrap' \
         --bind "ctrl-z:execute(sh $X/git-undo.sh '$ROOT')+reload($LOG)" \
         --bind "b:execute(sh $X/git-branch-pick.sh '$ROOT' '$REFF')+reload($LOG)+transform-header($HDR)" \
         --bind "ctrl-p:execute(sh $X/git-cherry-pick.sh '$ROOT' {1})+reload($LOG)" \
@@ -35,8 +35,8 @@ while : ; do
     [ "$LISTH" -lt 3 ] && LISTH=3
     FILELINE=$(printf '%s\n' "$FILES" \
       | fzf --ansi --reverse --prompt="$HASH > " \
-          --preview "git -C \"$ROOT\" show --color=always \"$HASH\" -- {-1}" \
-          --preview-window "down,$((TERMH - LISTH))" \
+          --preview "git -C \"$ROOT\" show --color=never \"$HASH\" -- {-1} | python3 \"$X/diff-words.py\"" \
+          --preview-window "down,$((TERMH - LISTH)),wrap" \
           --bind "right:execute(sh $X/diff-view.sh '$ROOT' commit {-1} '$HASH')" \
           --bind 'enter:accept,left:abort')
     [ -z "$FILELINE" ] && break
