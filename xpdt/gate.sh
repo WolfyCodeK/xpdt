@@ -39,6 +39,7 @@ lsp_rows() {
   cat <<'EOF'
 lua|Lua
 python|Python
+django|Django (templates)
 typescript|TypeScript / JavaScript
 html|HTML
 css|CSS

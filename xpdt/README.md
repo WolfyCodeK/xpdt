@@ -184,7 +184,7 @@ Claude Code stores each session as `~/.claude/projects/<encoded-cwd>/<id>.jsonl`
 
 ### Neovim intellisense (LSP)
 
-The **Neovim intellisense** section of the `,` menu is a list of languages and frameworks (Lua, Python, TypeScript / JavaScript, HTML, CSS, JSON, Bash, Rust, Go, Tailwind, Svelte, ESLint) you can turn on individually. Each is stored in `.gate-config` as `lsp-<name>=1/0` (all default **off**), and each maps to a language server that Neovim starts. The idea is that you enable only the languages you work in and install only those servers, so nothing heavy is pulled in by default.
+The **Neovim intellisense** section of the `,` menu is a list of languages and frameworks (Lua, Python, Django, TypeScript / JavaScript, HTML, CSS, JSON, Bash, Rust, Go, Tailwind, Svelte, ESLint) you can turn on individually. Django is the template language server (`djlsp` from `django-template-lsp`: completion for template tags, filters, `{% url %}` names, `{% static %}` paths, block names and context variables); Python code itself is covered by the Python entry (pyright). Each is stored in `.gate-config` as `lsp-<name>=1/0` (all default **off**), and each maps to a language server that Neovim starts. The idea is that you enable only the languages you work in and install only those servers, so nothing heavy is pulled in by default.
 
 The wiring lives in the Neovim config (`nvim/init.lua`), which xpdt hands off to (`ctrl-e`). It has no LSP plugins at all - it uses Neovim's built-in LSP (`vim.lsp.config` / `vim.lsp.enable`, 0.11+) and built-in completion (`vim.lsp.completion`):
 

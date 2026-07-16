@@ -119,6 +119,15 @@ local SERVERS = {
     root_markers = { "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", ".git" },
     install = "npm i -g pyright",
   },
+  django = {
+    -- Django template intellisense (tags, filters, {% url %} names, {% static %}
+    -- paths, block names, context vars). Python itself is covered by pyright above.
+    label = "Django (templates)",
+    cmd = { "djlsp" },
+    filetypes = { "html", "htmldjango" },
+    root_markers = { "manage.py", "pyproject.toml", ".git" },
+    install = "pipx install django-template-lsp  (or: pip install --user django-template-lsp)",
+  },
   typescript = {
     label = "TypeScript / JavaScript",
     cmd = { "typescript-language-server", "--stdio" },
@@ -191,7 +200,7 @@ local SERVERS = {
   },
 }
 local SERVER_ORDER = {
-  "lua", "python", "typescript", "html", "css", "json",
+  "lua", "python", "django", "typescript", "html", "css", "json",
   "bash", "rust", "go", "tailwind", "svelte", "eslint",
 }
 
@@ -262,11 +271,14 @@ local function setup_lsp()
     end
   end
   if #missing > 0 then
+    -- Keep this to ONE short line: a long message trips Neovim's blocking
+    -- "Press ENTER" hit-enter prompt on every launch. Details live in :XpdtLsp.
     vim.schedule(function()
       vim.notify(
-        "xpdt intellisense: turned on but no server installed for "
-          .. table.concat(missing, ", ")
-          .. ".  Run :XpdtLsp for the install command(s).",
+        ("xpdt: %d intellisense server%s not installed (:XpdtLsp)"):format(
+          #missing,
+          #missing == 1 and "" or "s"
+        ),
         vim.log.levels.WARN
       )
     end)
