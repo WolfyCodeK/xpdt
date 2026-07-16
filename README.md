@@ -18,9 +18,10 @@ get two commands:
   file create/delete/move, a git command menu, a toggleable two-digit
   confirmation gate on every mutating action, and full Nerd Font theming.
   Detailed docs are in [`xpdt/README.md`](xpdt/README.md).
-- **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter, a
-  Monokai theme colour-matched to bat, plus leap, surround, comment, lualine and
-  indent guides) that opens from the xpdt preview or the git changes browser with `ctrl-e`.
+- **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter on its
+  `main` branch - which builds parsers with the pinned `tree-sitter` CLI, needs a C
+  compiler present - a Monokai theme colour-matched to bat, plus leap, surround, comment,
+  lualine and indent guides) that opens from the xpdt preview or the git changes browser with `ctrl-e`.
   It also adds opt-in, per-language **intellisense** (LSP) - you pick the languages and
   frameworks you want in xpdt's settings menu and it installs just those servers for you
   (via Mason); it uses Neovim's built-in LSP and completion. See `xpdt/README.md`.
@@ -31,13 +32,14 @@ xpdt installs pinned tool versions (the config relies on recent xplr, fzf and
 Neovim features, so exact releases matter), then symlinks the two configs into
 `~/.config`:
 
-| Tool    | Version |
-| ------- | ------- |
-| xplr    | 1.1.0   |
-| bat     | 0.26.1  |
-| fzf     | 0.74.0  |
-| ripgrep | 14.1.1  |
-| Neovim  | 0.12.4  |
+| Tool        | Version |
+| ----------- | ------- |
+| xplr        | 1.1.0   |
+| bat         | 0.26.1  |
+| fzf         | 0.74.0  |
+| ripgrep     | 14.1.1  |
+| Neovim      | 0.12.4  |
+| tree-sitter | 0.26.11 |
 
 ### macOS and Linux
 

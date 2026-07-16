@@ -13,6 +13,10 @@ BAT_VERSION=0.26.1
 FZF_VERSION=0.74.0
 RIPGREP_VERSION=14.1.1
 NVIM_VERSION=0.12.4
+# tree-sitter CLI: the nvim-treesitter `main` branch (required on Neovim 0.11+)
+# compiles parsers with it. Needs a C compiler (cc) present too, which macOS
+# (Xcode CLT) and Linux build hosts have.
+TREESITTER_VERSION=0.26.11
 
 # --- options / paths --------------------------------------------------------
 PREFIX="${XPDT_PREFIX:-$HOME/.local}"
@@ -37,7 +41,7 @@ Usage: ./install.sh [options]
   --no-nvim-bootstrap   skip the headless Neovim plugin install
   -h, --help            show this help
 
-Installs pinned xplr, bat, fzf, ripgrep and Neovim, then symlinks the xplr and
+Installs pinned xplr, bat, fzf, ripgrep, Neovim and the tree-sitter CLI, then symlinks the xplr and
 nvim configs into ~/.config. Existing configs are backed up, not overwritten.
 EOF
   exit 0
@@ -83,10 +87,10 @@ esac
 
 # Per-tool platform strings for the four supported OS/arch combinations.
 case "$PLATFORM-$ARCH" in
-  linux-x86_64) RUST_TARGET=x86_64-unknown-linux-musl; FZF_PLAT=linux_amd64; NVIM_PLAT=linux-x86_64; XPLR_ASSET=xplr-linux.tar.gz ;;
-  linux-arm64) RUST_TARGET=aarch64-unknown-linux-gnu; FZF_PLAT=linux_arm64; NVIM_PLAT=linux-arm64; XPLR_ASSET=xplr-linux-aarch64.tar.gz ;;
-  macos-x86_64) RUST_TARGET=x86_64-apple-darwin; FZF_PLAT=darwin_amd64; NVIM_PLAT=macos-x86_64; XPLR_ASSET=xplr-macos.tar.gz ;;
-  macos-arm64) RUST_TARGET=aarch64-apple-darwin; FZF_PLAT=darwin_arm64; NVIM_PLAT=macos-arm64; XPLR_ASSET=xplr-macos-aarch64.tar.gz ;;
+  linux-x86_64) RUST_TARGET=x86_64-unknown-linux-musl; FZF_PLAT=linux_amd64; NVIM_PLAT=linux-x86_64; XPLR_ASSET=xplr-linux.tar.gz; TS_PLAT=linux-x64 ;;
+  linux-arm64) RUST_TARGET=aarch64-unknown-linux-gnu; FZF_PLAT=linux_arm64; NVIM_PLAT=linux-arm64; XPLR_ASSET=xplr-linux-aarch64.tar.gz; TS_PLAT=linux-arm64 ;;
+  macos-x86_64) RUST_TARGET=x86_64-apple-darwin; FZF_PLAT=darwin_amd64; NVIM_PLAT=macos-x86_64; XPLR_ASSET=xplr-macos.tar.gz; TS_PLAT=macos-x64 ;;
+  macos-arm64) RUST_TARGET=aarch64-apple-darwin; FZF_PLAT=darwin_arm64; NVIM_PLAT=macos-arm64; XPLR_ASSET=xplr-macos-aarch64.tar.gz; TS_PLAT=macos-arm64 ;;
 esac
 
 # --- helpers ----------------------------------------------------------------
@@ -107,6 +111,12 @@ install_ripgrep() {
   dl "$(ghrel BurntSushi/ripgrep "$RIPGREP_VERSION" "$d.tar.gz")" "$TMP_DIR/rg.tgz"
   tar xzf "$TMP_DIR/rg.tgz" -C "$TMP_DIR"
   install -m0755 "$TMP_DIR/$d/rg" "$BIN_DIR/rg"; info "ripgrep -> $BIN_DIR/rg"
+}
+install_treesitter() { # the tree-sitter CLI, used by nvim-treesitter (main) to build parsers
+  if at_version tree-sitter "$TREESITTER_VERSION"; then info "tree-sitter $TREESITTER_VERSION present"; return; fi
+  dl "$(ghrel tree-sitter/tree-sitter "v$TREESITTER_VERSION" "tree-sitter-$TS_PLAT.gz")" "$TMP_DIR/ts.gz"
+  gunzip -f "$TMP_DIR/ts.gz"
+  install -m0755 "$TMP_DIR/ts" "$BIN_DIR/tree-sitter"; info "tree-sitter -> $BIN_DIR/tree-sitter"
 }
 install_bat() {
   if at_version bat "$BAT_VERSION"; then info "bat $BAT_VERSION present"; return; fi
@@ -252,7 +262,7 @@ info "platform $PLATFORM/$ARCH   prefix $PREFIX   repo $REPO_DIR"
 
 if [ "$DO_TOOLS" = 1 ]; then
   step "installing pinned tools"
-  install_ripgrep; install_bat; install_fzf; install_nvim; install_xplr
+  install_ripgrep; install_bat; install_fzf; install_nvim; install_xplr; install_treesitter
 fi
 if [ "$DO_CONFIG" = 1 ]; then
   step "linking config and launcher"
