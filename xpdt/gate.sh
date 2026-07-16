@@ -50,6 +50,7 @@ ensure_cfg() { # materialise an all-on config the first time one is needed
 
 toggle() { # toggle KEY (use __master__ for the master switch)
   key="$1"; [ "$key" = "__master__" ] && key="enabled"
+  case "$key" in '#'*) return ;; esac  # section-header rows are not toggleable
   ensure_cfg
   if [ "$(get "$key")" = 1 ]; then new=0; else new=1; fi
   if grep -q "^$key=" "$CFG" 2>/dev/null; then
@@ -92,17 +93,26 @@ case "${1:-}" in
     ;;
   menu)
     # Rows are "key  checkbox  label"; field 1 (the key) is hidden by fzf's
-    # --with-nth and used only by the toggle bind. Master off dims the actions.
+    # --with-nth and used only by the toggle bind. Section-header rows use the key
+    # `#h` (ignored by toggle) so the two groups - plain app settings vs. the
+    # 2-digit-gated actions the master switch governs - read as distinct sections.
+    hdr() { printf '#h \033[1;38;5;110m%s\033[0m\n' "$1"; }
+    sub() { printf '#h \033[38;5;245m%s\033[0m\n' "$1"; }
+
+    hdr 'General'
     printf 'show-hidden %s Show hidden files (dotfiles) - applies on next launch\n' "$(box "$(get show-hidden)")"
-    printf 'claude-integration %s Claude session indicator in the git history panel\n' "$(box "$(get claude-integration)")"
+    printf 'claude-integration %s Claude session list in the git history panel\n' "$(box "$(get claude-integration)")"
+
     en=$(get enabled)
-    printf '__master__ %s Require 2-digit confirmation (master switch)\n' "$(box "$en")"
+    hdr 'Confirmation gate'
+    printf '__master__ %s Require a 2-digit code (master switch for the actions below)\n' "$(box "$en")"
+    sub 'Actions guarded by the code:'
     action_rows | while IFS='|' read -r k label; do
       v=$(get "$k")
       if [ "$en" = 1 ]; then
-        printf '%s %s %s\n' "$k" "$(box "$v")" "$label"
+        printf '%s %s   %s\n' "$k" "$(box "$v")" "$label"
       else
-        printf '%s \033[90m%s %s\033[0m\n' "$k" "$([ "$v" = 1 ] && printf '[x]' || printf '[ ]')" "$label"
+        printf '%s \033[90m%s   %s\033[0m\n' "$k" "$([ "$v" = 1 ] && printf '[x]' || printf '[ ]')" "$label"
       fi
     done
     ;;
