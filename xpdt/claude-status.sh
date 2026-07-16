@@ -32,7 +32,6 @@ now = time.time()
 ACTIVE_SEC = 90      # "working now" freshness window
 MAX_ROWS   = 5       # cap rows; overflow collapses into a "+N more" line
 NAME_MAX   = 42
-BR_MAX     = 14
 TAIL       = 262144  # bytes of each file tail to read
 HEAD       = 65536   # bytes to re-scan from the top if the title was not in the tail
 
@@ -118,11 +117,12 @@ for path in sys.stdin.read().splitlines():
     name = clean(title) or clean(last_prompt) or os.path.basename(path)[:8]
     if len(name) > NAME_MAX:
         name = name[: NAME_MAX - 1].rstrip() + "…"
+    # Branch is shown in full (bar the uninformative detached "HEAD"); the panel
+    # clips any genuinely over-long line, so there is no need to pre-truncate it -
+    # a fixed cap only cut short-name/long-branch rows that had room to spare.
     br = clean(branch)
     if br in ("", "HEAD"):
         br = None
-    elif len(br) > BR_MAX:
-        br = br[: BR_MAX - 1] + "…"
     working = bool(owes) and age < ACTIVE_SEC
     rows.append((working, age, name, br))
 

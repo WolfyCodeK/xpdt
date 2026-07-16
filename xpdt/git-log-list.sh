@@ -8,21 +8,36 @@
 # yellow ○ for a local commit (reachable from the viewed ref but not on any
 # remote-tracking branch), a filled ● for a pushed one. Field 1 stays the short
 # hash so the browser's {1} / preview / cherry-pick binds are unaffected.
-ROOT="$1"; REF="$2"
+#
+# The marking is done in pure POSIX shell, not awk: awk's handling of a multibyte
+# literal (the ○/●) in the *program source* varies by platform (it left the list
+# empty on some awk builds, e.g. macOS's), whereas a shell here just passes those
+# bytes straight through printf. No awk keeps it portable.
+ROOT="$1"
+REF="$2"
 REFARG="${REF:-HEAD}"
 
 # Local-only commits = reachable from the ref but not from any remote. With no
-# remote-tracking branches to compare against we cannot tell, so (like the box)
-# leave every commit a plain ● by keeping the set empty.
+# remote-tracking branches to compare against we cannot tell, so leave the set
+# empty (every commit a plain ●), like the git-history box's no-upstream case.
 UNPUSHED=""
 if [ -n "$(git -C "$ROOT" rev-list --remotes -n1 2>/dev/null)" ]; then
   UNPUSHED=$(git -C "$ROOT" rev-list "$REFARG" --not --remotes 2>/dev/null)
 fi
 
-git -C "$ROOT" log "$REFARG" --format='%H%x09%h%x09%s%x09%an' -n 500 2>/dev/null \
-  | awk -F'\t' -v up="$UNPUSHED" '
-    BEGIN { n = split(up, a, "\n"); for (i = 1; i <= n; i++) if (a[i] != "") U[a[i]] = 1 }
-    {
-      dot = ($1 in U) ? "\033[33m○\033[0m" : "●"
-      printf "%s  %s  %s  %s\n", $2, dot, $3, $4
-    }'
+ESC=$(printf '\033')
+TAB=$(printf '\t')
+NL='
+'
+LOCAL="$ESC[33m○$ESC[0m" # hollow yellow: local / not pushed
+PUSHED="●"               # filled: on a remote
+
+# %s (subject) is placed last so any tab it might contain cannot shift fields.
+git -C "$ROOT" log "$REFARG" --format="%H$TAB%h$TAB%an$TAB%s" -n 500 2>/dev/null \
+  | while IFS="$TAB" read -r full short author subject; do
+      case "$NL$UNPUSHED$NL" in
+        *"$NL$full$NL"*) dot="$LOCAL" ;;
+        *) dot="$PUSHED" ;;
+      esac
+      printf '%s  %s  %s  %s\n' "$short" "$dot" "$subject" "$author"
+    done
