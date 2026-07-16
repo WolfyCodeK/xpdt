@@ -58,18 +58,47 @@ vim.api.nvim_create_autocmd("ColorScheme", { callback = bat_palette })
 require("lazy").setup({
   { "tanvirtin/monokai.nvim", lazy = false, priority = 1000 },
   {
+    -- The `main` branch, not `master`: master is frozen and only supports Neovim
+    -- <= 0.10, so on 0.11+/0.12 its queries error (e.g. opening a markdown file:
+    -- "attempt to call method 'range' (a nil value)" from the injection query).
     "nvim-treesitter/nvim-treesitter",
-    branch = "master",
+    branch = "main",
     build = ":TSUpdate",
     config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "python", "javascript", "typescript", "lua", "json", "html", "css",
+      local ok, ts = pcall(require, "nvim-treesitter")
+      if ok then
+        local want = {
+          "python", "javascript", "typescript", "tsx", "lua", "json", "html", "css",
           "bash", "yaml", "toml", "markdown", "markdown_inline", "vim", "vimdoc",
-        },
-        auto_install = true,
-        highlight = { enable = true },
-        indent = { enable = true },
+        }
+        -- Install only the parsers not already built (main's install() would otherwise
+        -- re-fetch every startup), and only if the tree-sitter CLI is present to build
+        -- them. All wrapped in pcall so a missing CLI never errors on startup.
+        local have = {}
+        pcall(function()
+          for _, p in ipairs(ts.get_installed and ts.get_installed() or {}) do
+            have[p] = true
+          end
+        end)
+        if vim.fn.executable("tree-sitter") == 1 then
+          local missing = {}
+          for _, p in ipairs(want) do
+            if not have[p] then
+              missing[#missing + 1] = p
+            end
+          end
+          if #missing > 0 then
+            pcall(ts.install, missing)
+          end
+        end
+      end
+      -- The main branch does not auto-enable highlighting; start it per buffer (the
+      -- built-in highlighter, which the bat palette's @capture groups still colour).
+      -- pcall so filetypes with no installed parser fall back to Vim syntax quietly.
+      vim.api.nvim_create_autocmd("FileType", {
+        callback = function(ev)
+          pcall(vim.treesitter.start, ev.buf)
+        end,
       })
     end,
   },
