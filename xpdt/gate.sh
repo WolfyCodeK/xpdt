@@ -31,14 +31,35 @@ pull|git: pull
 EOF
 }
 
+# Neovim intellisense: the languages / frameworks you can turn on (key|label).
+# Each maps to an LSP server nvim starts (see nvim/init.lua SERVERS, same keys);
+# the toggle only enables it - you install the few servers you want yourself, so
+# it stays lightweight. All default OFF.
+lsp_rows() {
+  cat <<'EOF'
+lua|Lua
+python|Python
+typescript|TypeScript / JavaScript
+html|HTML
+css|CSS
+json|JSON
+bash|Bash
+rust|Rust
+go|Go
+tailwind|Tailwind CSS (framework)
+svelte|Svelte (framework)
+eslint|ESLint (framework)
+EOF
+}
+
 get() { # get KEY -> 1 (on) or 0 (off). Confirmation actions and show-hidden default
-        # on; claude-integration is opt-in and defaults off.
+        # on; claude-integration and the lsp-* language toggles are opt-in (off).
   if [ -f "$CFG" ]; then
     v=$(sed -n "s/^$1=//p" "$CFG" 2>/dev/null | head -n1)
     case "$v" in 0) echo 0; return ;; 1) echo 1; return ;; esac
   fi
   case "$1" in
-    claude-integration) echo 0 ;;
+    claude-integration | lsp-*) echo 0 ;;
     *) echo 1 ;;
   esac
 }
@@ -93,18 +114,28 @@ case "${1:-}" in
     ;;
   menu)
     # Rows are "key  checkbox  label"; field 1 (the key) is hidden by fzf's
-    # --with-nth and used only by the toggle bind. Section-header rows use the key
-    # `#h` (ignored by toggle) so the two groups - plain app settings vs. the
-    # 2-digit-gated actions the master switch governs - read as distinct sections.
-    hdr() { printf '#h \033[1;38;5;110m%s\033[0m\n' "$1"; }
+    # --with-nth and used only by the toggle bind. Section-header and blank spacer
+    # rows use the key `#h` (ignored by the toggle), and a blank line separates each
+    # group, so the three - app settings, Neovim intellisense, and the 2-digit-gated
+    # actions the master switch governs - read as clearly separate sections.
+    hdr() { printf '#h \033[1;38;5;75m%s\033[0m\n' "$1"; }
     sub() { printf '#h \033[38;5;245m%s\033[0m\n' "$1"; }
+    gap() { printf '#h \n'; }
 
-    hdr 'General'
+    hdr 'GENERAL'
     printf 'show-hidden %s Show hidden files (dotfiles) - applies on next launch\n' "$(box "$(get show-hidden)")"
     printf 'claude-integration %s Claude session list in the git history panel\n' "$(box "$(get claude-integration)")"
 
+    gap
+    hdr 'NEOVIM INTELLISENSE'
+    sub 'Turn on per language; install only the ones you pick (:XpdtLsp in nvim)'
+    lsp_rows | while IFS='|' read -r k label; do
+      printf '%s %s   %s\n' "lsp-$k" "$(box "$(get "lsp-$k")")" "$label"
+    done
+
+    gap
     en=$(get enabled)
-    hdr 'Confirmation gate'
+    hdr 'CONFIRMATION GATE'
     printf '__master__ %s Require a 2-digit code (master switch for the actions below)\n' "$(box "$en")"
     sub 'Actions guarded by the code:'
     action_rows | while IFS='|' read -r k label; do
