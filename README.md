@@ -22,8 +22,8 @@ get two commands:
   Monokai theme colour-matched to bat, plus leap, surround, comment, lualine and
   indent guides) that opens from the xpdt preview or the git changes browser with `ctrl-e`.
   It also adds opt-in, per-language **intellisense** (LSP) - you pick the languages and
-  frameworks you want in xpdt's settings menu and install only those servers; it uses
-  Neovim's built-in LSP and completion, no extra plugins. See `xpdt/README.md`.
+  frameworks you want in xpdt's settings menu and it installs just those servers for you
+  (via Mason); it uses Neovim's built-in LSP and completion. See `xpdt/README.md`.
 
 ## Install
 

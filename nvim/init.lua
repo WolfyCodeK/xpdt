@@ -83,6 +83,9 @@ require("lazy").setup({
   { "numToStr/Comment.nvim", config = true },
   { "nvim-lualine/lualine.nvim", config = function() require("lualine").setup({ options = { theme = "auto" } }) end },
   { "lukas-reineke/indent-blankline.nvim", main = "ibl", config = true },
+  -- Installs the language servers you enable in xpdt's settings (see the LSP block
+  -- below). Only the servers you pick are fetched, into Mason's own isolated dir.
+  { "mason-org/mason.nvim", lazy = false, build = ":MasonUpdate", config = function() require("mason").setup() end },
 })
 
 -- theme (fires the ColorScheme autocmd that applies the bat palette)
@@ -204,6 +207,25 @@ local SERVER_ORDER = {
   "bash", "rust", "go", "tailwind", "svelte", "eslint",
 }
 
+-- xpdt key -> Mason package name. Mason fetches these (only the languages you enable)
+-- into its own isolated dir and puts them on PATH via mason.setup(), so the SERVERS
+-- `cmd` above then resolves. All are in the Mason registry.
+local MASON = {
+  lua = "lua-language-server",
+  python = "pyright",
+  django = "django-template-lsp",
+  typescript = "typescript-language-server",
+  html = "html-lsp",
+  css = "css-lsp",
+  json = "json-lsp",
+  bash = "bash-language-server",
+  rust = "rust-analyzer",
+  go = "gopls",
+  tailwind = "tailwindcss-language-server",
+  svelte = "svelte-language-server",
+  eslint = "eslint-lsp",
+}
+
 local function enabled_langs()
   local on = {}
   local f = io.open(vim.fn.expand("~/.config/xpdt/.gate-config"), "r")
@@ -251,33 +273,89 @@ vim.api.nvim_create_autocmd("LspAttach", {
   end,
 })
 
--- configure + start each enabled server that is installed; note the ones that are not
+local function enable_server(name)
+  local spec = SERVERS[name]
+  vim.lsp.config(name, {
+    cmd = spec.cmd,
+    filetypes = spec.filetypes,
+    root_markers = spec.root_markers,
+    settings = spec.settings,
+  })
+  vim.lsp.enable(name)
+end
+
+-- For each enabled language: if its server is already on PATH, start it now;
+-- otherwise ask Mason to install it (only the ones you picked) and start it the
+-- moment Mason reports it done - reopening the file or restarting also picks it up.
 local function setup_lsp()
+  pcall(require, "mason") -- make lazy load Mason + run mason.setup() (puts its bin on PATH)
   local on = enabled_langs()
-  local missing = {}
-  for name, spec in pairs(SERVERS) do
-    if on[name] then
+  local mr_ok, mr = pcall(require, "mason-registry")
+  local installing = {}
+  local stuck = {}
+  for name in pairs(on) do
+    local spec = SERVERS[name]
+    if spec then
       if vim.fn.executable(spec.cmd[1]) == 1 then
-        vim.lsp.config(name, {
-          cmd = spec.cmd,
-          filetypes = spec.filetypes,
-          root_markers = spec.root_markers,
-          settings = spec.settings,
-        })
-        vim.lsp.enable(name)
+        enable_server(name)
+      elseif mr_ok and MASON[name] then
+        local ok, pkg = pcall(mr.get_package, MASON[name])
+        if ok and pkg then
+          installing[MASON[name]] = name
+          pcall(function()
+            pkg:install()
+          end)
+        else
+          stuck[#stuck + 1] = spec.label
+        end
       else
-        missing[#missing + 1] = spec.label
+        stuck[#stuck + 1] = spec.label
       end
     end
   end
-  if #missing > 0 then
-    -- Keep this to ONE short line: a long message trips Neovim's blocking
-    -- "Press ENTER" hit-enter prompt on every launch. Details live in :XpdtLsp.
+  if next(installing) and mr_ok then
+    pcall(function()
+      mr:on("package:install:success", function(pkg)
+        local sname = installing[pkg.name]
+        if sname then
+          installing[pkg.name] = nil
+          vim.schedule(function()
+            local spec = SERVERS[sname]
+            if vim.fn.executable(spec.cmd[1]) == 1 then
+              enable_server(sname)
+              -- enable() only auto-attaches future buffers, so re-fire FileType on any
+              -- already-open buffer of this server's filetypes to attach it now.
+              for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                if
+                  vim.api.nvim_buf_is_loaded(buf)
+                  and vim.tbl_contains(spec.filetypes, vim.bo[buf].filetype)
+                then
+                  vim.api.nvim_exec_autocmds("FileType", { buffer = buf })
+                end
+              end
+              vim.notify("xpdt intellisense: " .. spec.label .. " ready", vim.log.levels.INFO)
+            end
+          end)
+        end
+      end)
+    end)
+    local n = vim.tbl_count(installing)
     vim.schedule(function()
       vim.notify(
-        ("xpdt: %d intellisense server%s not installed (:XpdtLsp)"):format(
-          #missing,
-          #missing == 1 and "" or "s"
+        ("xpdt: installing %d intellisense server%s via Mason (:Mason for progress)"):format(
+          n,
+          n == 1 and "" or "s"
+        ),
+        vim.log.levels.INFO
+      )
+    end)
+  end
+  if #stuck > 0 then
+    vim.schedule(function()
+      vim.notify(
+        ("xpdt: %d intellisense server%s could not be installed (:XpdtLsp)"):format(
+          #stuck,
+          #stuck == 1 and "" or "s"
         ),
         vim.log.levels.WARN
       )
@@ -287,6 +365,7 @@ end
 
 vim.api.nvim_create_user_command("XpdtLsp", function()
   local on = enabled_langs()
+  local mr_ok, mr = pcall(require, "mason-registry")
   local lines = { "xpdt intellisense  -  toggle languages in xpdt's `,` settings menu", "" }
   for _, name in ipairs(SERVER_ORDER) do
     local s = SERVERS[name]
@@ -294,13 +373,23 @@ vim.api.nvim_create_user_command("XpdtLsp", function()
     if not on[name] then
       status = "off"
     elseif vim.fn.executable(s.cmd[1]) == 1 then
-      status = "ON  - installed (" .. s.cmd[1] .. ")"
+      status = "ON  - installed"
+    elseif mr_ok and MASON[name] then
+      local ok, pkg = pcall(mr.get_package, MASON[name])
+      if ok and pkg and pkg:is_installed() then
+        status = "ON  - installed (restart to start)"
+      else
+        status = "ON  - installing via Mason (:Mason)"
+      end
     else
-      status = "ON  - NOT installed:  " .. s.install
+      status = "ON  - not installed: " .. s.install
     end
     lines[#lines + 1] = string.format("  %-24s %s", s.label, status)
   end
   vim.notify(table.concat(lines, "\n"))
-end, { desc = "Show xpdt intellisense (LSP) status and install commands" })
+end, { desc = "Show xpdt intellisense (LSP) status" })
 
+-- Run inline (not deferred): vim.lsp.enable only auto-attaches to buffers opened
+-- AFTER it runs, and the file you launched on is read just after init.lua sources,
+-- so deferring would miss it. setup_lsp force-loads Mason itself for the PATH.
 setup_lsp()
