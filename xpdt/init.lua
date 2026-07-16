@@ -45,6 +45,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["d"] = {
   help = "delete (2 digit code)",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/delete.sh\"" },
+    { CallLuaSilently = "custom.invalidate_git" },
     "ExplorePwdAsync",
   }
 }
@@ -53,6 +54,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["a"] = {
   help = "create file (2 digit code)",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" newfile" },
+    { CallLuaSilently = "custom.invalidate_git" },
     "ExplorePwdAsync",
   }
 }
@@ -61,6 +63,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["f"] = {
   help = "create folder (2 digit code)",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" newfolder" },
+    { CallLuaSilently = "custom.invalidate_git" },
     "ExplorePwdAsync",
   }
 }
@@ -69,6 +72,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["m"] = {
   help = "move/rename (2 digit code)",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" move" },
+    { CallLuaSilently = "custom.invalidate_git" },
     "ExplorePwdAsync",
   }
 }
@@ -77,6 +81,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["g"] = {
   help = "git menu",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/git-menu.sh\"" },
+    { CallLuaSilently = "custom.invalidate_git" },
     "ExplorePwdAsync",
   }
 }
@@ -85,6 +90,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["s"] = {
   help = "git stash browser",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/git-stash-browser.sh\"" },
+    { CallLuaSilently = "custom.invalidate_git" },
     "ExplorePwdAsync",
   }
 }
@@ -257,8 +263,12 @@ local repo_root_cache = {}
 local git_log_cache = {}
 local claude_cache = {}
 
-local STATUS_TTL = 1
-local GIT_LOG_TTL = 5
+-- Git state is repo-wide and now cached across directory navigation (it is dropped
+-- explicitly by invalidate_git after an xpdt action, not on every directory change).
+-- These TTLs are the backstop for changes made OUTSIDE xpdt (e.g. edits in another
+-- terminal): the panels catch up within this many seconds even without an action.
+local STATUS_TTL = 10
+local GIT_LOG_TTL = 10
 local CLAUDE_TTL = 5
 local xplrignore_active = false
 
@@ -429,21 +439,40 @@ xplr.fn.custom.git_modified = function(m)
   return " "
 end
 
-xplr.fn.custom.refresh_git_status = function()
+-- Called after an xpdt action that can change git state (stage / commit / discard /
+-- stash / checkout / pull / undo / cherry-pick / create / delete / move), so the M
+-- column, changes box, history graph and author column refresh on the next render.
+-- Navigation does NOT invalidate: git status/log are repo-wide, so this is no longer
+-- run on every directory change - moving between directories used to re-run
+-- `git status` over the whole worktree each time, the main "exploring directories"
+-- lag on a big repo. The caches now persist across navigation (see the TTLs) and are
+-- only dropped here, on an actual change.
+xplr.fn.custom.invalidate_git = function()
   for key in pairs(git_status_cache) do
     git_status_cache[key] = nil
+  end
+  for key in pairs(git_log_cache) do
+    git_log_cache[key] = nil
+  end
+  for key in pairs(git_author_cache) do
+    git_author_cache[key] = nil
+  end
+  for key in pairs(git_author_dir_done) do
+    git_author_dir_done[key] = nil
   end
 end
 
 xplr.fn.custom.open_git_browser = function(app)
   return {
     { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xpdt/git-log-browser.sh\"" },
+    { CallLuaSilently = "custom.invalidate_git" },
   }
 end
 
 xplr.fn.custom.open_changes_browser = function(app)
   return {
     { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xpdt/git-changes-browser.sh\"" },
+    { CallLuaSilently = "custom.invalidate_git" },
   }
 end
 
@@ -697,7 +726,6 @@ return {
     { CallLuaSilently = "custom.apply_xplrignore" },
   },
   on_directory_change = {
-    { CallLuaSilently = "custom.refresh_git_status" },
     { CallLuaSilently = "custom.apply_xplrignore" },
   },
 }
