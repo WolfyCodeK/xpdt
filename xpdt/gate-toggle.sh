@@ -9,5 +9,10 @@
 # wiped when the reload lands, jumping the cursor to the top. pos() uses {n}+1
 # (fzf's own index, always substituted) rather than $FZF_POS.
 X="$HOME/.config/xpdt"
-sh "$X/gate.sh" toggle "$1"
+# Section-header rows carry the key `#h` and are not toggleable - skip the toggle
+# but still reload+pos so the cursor stays put when one is (harmlessly) activated.
+case "${1:-}" in
+  ''|'#'*) : ;;
+  *) sh "$X/gate.sh" toggle "$1" ;;
+esac
 printf 'reload-sync(sh %s/gate.sh menu)+pos(%s)' "$X" "$(( ${2:-0} + 1 ))"
