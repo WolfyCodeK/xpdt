@@ -9,7 +9,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
 {
   sec "MOVE"
   row "up down" "navigate"
-  row "right" "enter directory / preview file"
+  row "right" "enter directory / open file in neovim"
   row "left" "up a directory"
   row "'" "jump back to the start directory"
   row "w" "hop to the next sibling git repo (its top)"

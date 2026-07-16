@@ -121,14 +121,14 @@ xplr.config.modes.builtin.default.key_bindings.on_key[","] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["."] = nil
 
 xplr.config.modes.builtin.default.key_bindings.on_key["right"] = {
-  help = "enter dir or preview file",
+  help = "enter dir or open file in neovim",
   messages = {
     {
       BashExecSilently = [===[
         if [ -d "$XPLR_FOCUS_PATH" ]; then
           echo 'Enter' >> "${XPLR_PIPE_MSG_IN:?}"
         else
-          "$XPLR" -m 'BashExec: %q' "sh $HOME/.config/xpdt/preview-file.sh"
+          "$XPLR" -m 'BashExec: %q' "sh $HOME/.config/xpdt/open-file.sh"
         fi
       ]===]
     }

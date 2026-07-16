@@ -20,26 +20,26 @@ The key legend is no longer an always-on panel (it ran off the side of narrow te
 
 Main directory view:
 
-| Key      | Action                                                 |
-| -------- | ------------------------------------------------------ |
-| `↑ ↓`    | move                                                   |
-| `→`      | enter directory, or preview a file (`preview-file.sh`) |
-| `←`      | up a directory (xplr built in)                         |
-| `enter`  | repo changes browser (`git-changes-browser.sh`)        |
-| `;`      | commit history browser (`git-log-browser.sh`)          |
-| `s`      | stash browser (`git-stash-browser.sh`)                 |
-| `/`      | find files by name (`search.sh files`)                 |
-| `\`      | search inside files (`search.sh content`)              |
-| `'`      | jump back to the directory xplr was opened from        |
-| `w`      | hop to the next sibling git repo (`next-git-repo.sh`)  |
-| `,`      | settings menu (`gate-menu.sh`)                         |
-| `h`      | controls / help popup (`help.sh`)                      |
-| `ctrl-h` | neovim cheat sheet popup (`nvim-cheatsheet.sh`)        |
-| `q`      | quit (xplr built in)                                   |
+| Key      | Action                                                     |
+| -------- | ---------------------------------------------------------- |
+| `↑ ↓`    | move                                                       |
+| `→`      | enter directory, or open a file in Neovim (`open-file.sh`) |
+| `←`      | up a directory (xplr built in)                             |
+| `enter`  | repo changes browser (`git-changes-browser.sh`)            |
+| `;`      | commit history browser (`git-log-browser.sh`)              |
+| `s`      | stash browser (`git-stash-browser.sh`)                     |
+| `/`      | find files by name (`search.sh files`)                     |
+| `\`      | search inside files (`search.sh content`)                  |
+| `'`      | jump back to the directory xplr was opened from            |
+| `w`      | hop to the next sibling git repo (`next-git-repo.sh`)      |
+| `,`      | settings menu (`gate-menu.sh`)                             |
+| `h`      | controls / help popup (`help.sh`)                          |
+| `ctrl-h` | neovim cheat sheet popup (`nvim-cheatsheet.sh`)            |
+| `q`      | quit (xplr built in)                                       |
 
 Every mutating action (create / move / delete, stage / hunk / discard / commit, stash apply / pop / drop / new / clear, undo commit, git checkout / pull) runs behind the confirmation gate: by default it asks you to type two random digits first. The `,` menu turns that off globally or per action. See Confirmation gate below.
 
-Changes browser (`enter`): `s` stage/unstage the whole file (toggle, based on where the entry currently is), `p` open the hunk browser to stage/unstage individual hunks of the focused file, `d` discard, `c` commit (prompts for a message), `ctrl-e` edit the file in Neovim, `→` inline diff viewer, `enter` open the diff in VS Code, `←` back. Stage / hunk / discard / commit go through the confirmation gate.
+Changes browser (`enter`): `s` stage/unstage the whole file (toggle, based on where the entry currently is), `p` open the hunk browser to stage/unstage individual hunks of the focused file, `d` discard, `c` commit (prompts for a message), `→` edit the file in Neovim if the entry is **unstaged**, or open the read-only inline diff if it is **staged** (you cannot edit a staged snapshot), `ctrl-e` edit in Neovim regardless, `enter` open the diff in VS Code, `←` back. Stage / hunk / discard / commit go through the confirmation gate.
 
 Hunk browser (`p`): a `git add -p` style view of the focused file's hunks. `s` stages the focused hunk (or unstages it, if you opened `p` on a staged entry); `d` discards the hunk (unstaged hunks only - it reverts that hunk in the working tree); `←` back. Each hunk shows its diff in the preview; acting on a hunk reloads the list so you can work through them one at a time. Both `s` and `d` go through the confirmation gate (`hunk` and `discard` respectively).
 
@@ -88,7 +88,8 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 | `help.sh`                | The `h` controls help: renders xpdt's key bindings as short vertical lines (so nothing truncates) and shows them in `popup.sh`.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `nvim-cheatsheet.sh`     | The `ctrl-h` neovim key cheat sheet, shown in `popup.sh`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `popup.sh`               | Shared popup window: shows piped-in text in a bordered, scrollable `fzf` box (used by `help.sh` and `nvim-cheatsheet.sh`).                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `preview-file.sh`        | Full screen file preview: `bat` for colour, `wrap-lines.py` for the gutter and indent aware wrap, fzf to display.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `open-file.sh`           | Opens the focused file in Neovim (what `→` does on a file now - Neovim opens in normal mode, so it reads as well as edits). Refreshes the git panels afterwards in case the file changed.                                                                                                                                                                                                                                                                                                                                            |
+| `preview-file.sh`        | Full screen file preview (`bat` + `wrap-lines.py` + fzf). No longer bound to `→`; used to preview a hit in the `/` `\` search.                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `wrap-lines.py`          | ANSI aware, indent preserving line wrapper for the file preview. Adds the line number gutter and remaps the `\` search jump position.                                                                                                                                                                                                                                                                                                                                                                                                |
 | `wrap-header.sh`         | Wraps an fzf header (key legend) onto multiple lines for narrow terminals - fzf truncates long headers rather than wrapping. Packs the space-separated items into lines that fit the tty width; used by every browser's `--header`.                                                                                                                                                                                                                                                                                                  |
 | `preview-track.sh`       | Remembers the line the preview search lands on and restores it when the query is cleared (bound to fzf's `result` event; fzf otherwise resets the cursor to the top on every query change).                                                                                                                                                                                                                                                                                                                                          |
@@ -140,7 +141,7 @@ When a directory holds several git repos side by side (say `work/project1` and `
 
 ### Changes browser (`enter`)
 
-`git-changes-browser.sh` lists staged and unstaged entries and binds single keys (lazygit style, so the list is `--disabled` and `--no-input`, no filter box at all since the keys are actions not text): `s` toggles the entry (stages an unstaged entry with `git add`, unstages a staged entry with `git restore --staged`, based on the entry's group), `d` discard, `c` commit. Each action runs then `reload`s the list in place, and a `load:transform` bind resizes the list to the current entry count (reading `$FZF_TOTAL_COUNT` and calling `change-preview-window`) so it grows and shrinks as changes appear or are staged. `enter` opens the diff in VS Code via `open-git-diff.sh`; `→` opens the inline diff viewer; `ctrl-e` opens the working file in Neovim (then `reload`s the list, since the edit may change the diff). Stage/unstage, discard and commit are separate scripts (`git-stage.sh`, `git-discard.sh`, `git-commit.sh`) so each can run behind the confirmation gate; the stage bind is therefore `execute` (it may need to prompt for the code) rather than the old `execute-silent`.
+`git-changes-browser.sh` lists staged and unstaged entries and binds single keys (lazygit style, so the list is `--disabled` and `--no-input`, no filter box at all since the keys are actions not text): `s` toggles the entry (stages an unstaged entry with `git add`, unstages a staged entry with `git restore --staged`, based on the entry's group), `d` discard, `c` commit. Each action runs then `reload`s the list in place, and a `load:transform` bind resizes the list to the current entry count (reading `$FZF_TOTAL_COUNT` and calling `change-preview-window`) so it grows and shrinks as changes appear or are staged. `enter` opens the diff in VS Code via `open-git-diff.sh`; `→` is context-aware - on an **unstaged** entry it opens the working file in Neovim to edit (`cd $ROOT && nvim`), on a **staged** entry it opens the read-only inline diff viewer (a staged snapshot is not something you edit in place); `ctrl-e` opens the working file in Neovim regardless. Both `→` and `ctrl-e` `reload` the list afterwards since an edit may change the diff. Stage/unstage, discard and commit are separate scripts (`git-stage.sh`, `git-discard.sh`, `git-commit.sh`) so each can run behind the confirmation gate; the stage bind is therefore `execute` (it may need to prompt for the code) rather than the old `execute-silent`.
 
 ### Partial staging (hunks) (`p`)
 
@@ -222,7 +223,7 @@ Scope: `scope.sh` reads / toggles `.search-scope` (`here` = current directory, `
 
 ### File preview
 
-`preview-file.sh` pipes `bat` (colour, tabs expanded) into `wrap-lines.py`, then into fzf. `wrap-lines.py` is the interesting part: it adds its own line number gutter and wraps long lines so the continuation lines line up under where the original line's content started (indent aware soft wrap), all while preserving `bat`'s ANSI colours across the wrap. It also remaps the target line for the `\` search jump, because wrapping turns one logical line into several display rows. `ctrl-y` copies the file with `pbcopy` and briefly flips the prompt to "copied to clipboard", auto reverting after two seconds via fzf's `--listen` HTTP port. fzf resets the cursor to the top whenever the query changes, so clearing a search would otherwise jump you away from the line you found; `preview-track.sh` (bound to the `result` event, which fires after filtering settles so `{n}` is the real focused line) records the landing line while you type and emits a `pos(...)` to restore it when the query goes empty.
+The file preview is now reached by previewing a hit in the `/` `\` search rather than by `→` on the main view (which opens the file in Neovim). `preview-file.sh` pipes `bat` (colour, tabs expanded) into `wrap-lines.py`, then into fzf. `wrap-lines.py` is the interesting part: it adds its own line number gutter and wraps long lines so the continuation lines line up under where the original line's content started (indent aware soft wrap), all while preserving `bat`'s ANSI colours across the wrap. It also remaps the target line for the `\` search jump, because wrapping turns one logical line into several display rows. `ctrl-y` copies the file with `pbcopy` and briefly flips the prompt to "copied to clipboard", auto reverting after two seconds via fzf's `--listen` HTTP port. fzf resets the cursor to the top whenever the query changes, so clearing a search would otherwise jump you away from the line you found; `preview-track.sh` (bound to the `result` event, which fires after filtering settles so `{n}` is the real focused line) records the landing line while you type and emits a `pos(...)` to restore it when the query goes empty.
 
 ### VS Code diff (`open-git-diff.sh`)
 
