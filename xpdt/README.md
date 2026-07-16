@@ -117,7 +117,14 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 
 ### Git modified column and status
 
-`custom.git_modified` shows a coloured dot when a path is dirty. It reads `git_status`, which caches `git status --porcelain` per repo root with a 1 second TTL. The changes box (`render_git_changes`) and the browser reuse the same porcelain parse.
+`custom.git_modified` shows a coloured dot when a path is dirty. It reads `git_status`, which caches `git status --porcelain` per repo root. The changes box (`render_git_changes`) and the browser reuse the same porcelain parse.
+
+Git state (status and the history graph) is **repo-wide**, so it is cached across directory navigation rather than recomputed every time you move. Earlier, `on_directory_change` cleared the status cache, so entering any directory re-ran `git status` over the whole worktree - the main lag when exploring a big repo. Now:
+
+- The caches persist across directory changes and expire only on a longer TTL (`STATUS_TTL` / `GIT_LOG_TTL`, ~10s) - a backstop for changes made outside xpdt (e.g. an edit in another terminal), which the panels then catch up to within that window.
+- After any xpdt action that can change git state - stage / commit / discard (changes browser), stash, checkout / pull (git menu), undo / cherry-pick (history browser), create / delete / move - the bind runs `custom.invalidate_git`, which drops the status, log and author caches so the columns and panels refresh immediately on the next render. Navigation does not invalidate; a real change does.
+
+This is a caching strategy, not background loading, and deliberately so: xplr 1.1.0 cannot fill panels in asynchronously. A subprocess can only message xplr (`$XPLR_PIPE_MSG_IN`) while it is the running foreground bind - the pipe is torn down the moment the bind returns, so a detached "compute in the background, then refresh" job cannot signal xplr - and xplr does not redraw until a bind completes, so it cannot paint the listing first and fill git in later. The render functions therefore stay synchronous; the win is not recomputing what has not changed.
 
 ### Git history: local vs pushed commits
 
@@ -129,7 +136,7 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 
 ### Switching between git repos (`w`)
 
-When a directory holds several git repos side by side (say `work/project1` and `work/project2`), `w` hops straight to the top of the next one. `next-git-repo.sh` works out the "workspace": if you are inside a repo it is that repo's parent, otherwise it is the nearest ancestor of the current directory that has git-repo children. It lists that workspace's immediate subdirectories that are git repos (sorted), finds where the current repo sits, and prints the next one (wrapping); from outside any of them it prints the first. The keybinding feeds that path to `xplr -m 'ChangeDirectory'`, so each press lands you at the top of a repo, and xplr's `on_directory_change` refreshes the git panels for it.
+When a directory holds several git repos side by side (say `work/project1` and `work/project2`), `w` hops straight to the top of the next one. `next-git-repo.sh` works out the "workspace": if you are inside a repo it is that repo's parent, otherwise it is the nearest ancestor of the current directory that has git-repo children. It lists that workspace's immediate subdirectories that are git repos (sorted), finds where the current repo sits, and prints the next one (wrapping); from outside any of them it prints the first. The keybinding feeds that path to `xplr -m 'ChangeDirectory'`, so each press lands you at the top of a repo; the git panels then render from cache or, for a repo not seen yet, compute once.
 
 ### Changes browser (`enter`)
 
