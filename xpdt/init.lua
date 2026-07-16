@@ -270,10 +270,6 @@ local function dir_of(path)
   return parent
 end
 
-local function base_of(path)
-  return path:match("[^/]+$") or path
-end
-
 local function now_secs()
   if os and os.time then
     return os.time()
@@ -411,9 +407,11 @@ xplr.fn.builtin.fmt_general_table_row_cols_2 = function(m)
 
   local a = git_author_cache[path]
   if a == nil then
-    local handle = io.popen('git -C "' .. dir .. '" log -1 --format="%an" -- "' .. base_of(path) .. '" 2>/dev/null')
-    a = handle:read("*a"):gsub("%s+$", "")
-    handle:close()
+    -- Missed by the (bounded) batch: an untracked file, or one whose last commit is
+    -- older than the author walk depth. Leave it blank rather than spawning a git
+    -- process per file on render - that per-file cost was a big part of the lag when
+    -- first entering a directory (especially one with many untracked files).
+    a = ""
     git_author_cache[path] = a
   end
   return a

@@ -1,10 +1,6 @@
 #!/bin/sh
 ROOT="$1"; MODE="$2"; FILE="$3"; HASH="$4"
 [ -z "$ROOT" ] || [ -z "$FILE" ] && exit 0
-# Clear the screen before the (bat + diff-render) setup, so leftover output from a
-# prior action in the same fzf session (e.g. confirmation prompts) does not flash
-# on the normal screen while the viewer prepares its content.
-printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 BASE=$(basename "$FILE")
 case "$MODE" in
   staged)
@@ -36,6 +32,10 @@ RENDERED=$(eval "$DIFF0" 2>/dev/null | W=$((COLS - 4)) CHGPOSFILE="$CHGPOSF" pyt
 FIRST=$(awk '{print $1}' "$CHGPOSF" 2>/dev/null)
 POSBIND=""
 [ -n "$FIRST" ] && POSBIND="--bind load:pos($FIRST)"
+# The bat + diff-render setup above wrote nothing to the screen, so the current view
+# stayed put during it; clear leftover output only now, right before fzf paints, so
+# there is no blank flash while the viewer is prepared.
+printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 printf '%s\n' "$RENDERED" | fzf --ansi --no-sort --disabled --reverse --prompt="$BASE > " \
   --scroll-off=9999 \
   $POSBIND \

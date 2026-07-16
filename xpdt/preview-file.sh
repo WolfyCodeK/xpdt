@@ -8,8 +8,10 @@ COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=100
 TMP=$(mktemp); POSF=$(mktemp); PORTF=$(mktemp); MAPF=$(mktemp); MARKF=$(mktemp)
 LASTPOSF=$(mktemp); QLENF=$(mktemp)
-# Clear leftover output (e.g. a prior confirmation prompt) before the preview paints.
-printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+# Render into $TMP first (bat + wrap can take a moment on a big file) WITHOUT
+# touching the screen, so the current view stays put until the preview is ready
+# instead of flashing blank for the whole prep. The screen is cleared only once,
+# right before fzf paints (see below).
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$F" \
   | W=$((COLS - 4)) HL="$XPLR_PREVIEW_LINE" POSFILE="$POSF" MAPFILE="$MAPF" python3 "$HOME/.config/xpdt/wrap-lines.py" > "$TMP"
 POSBIND=""
@@ -33,6 +35,9 @@ RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- '$F' | W=$((CO
   done
 ) &
 WATCHER=$!
+# Clear leftover output (e.g. a prior confirmation prompt) only now that the preview
+# is built, so fzf paints over it in the same instant instead of after a blank gap.
+printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 fzf --ansi --no-sort --exact --reverse --wrap --listen --prompt="$BASE > " \
     $POSBIND \
     --header="$(sh "$HOME/.config/xpdt/wrap-header.sh" 'type to search    [ctrl-v] select    [ctrl-y] copy    [ctrl-e] edit    [enter] menu    [←] back')" \
