@@ -200,6 +200,11 @@ if xpdt_setting_on("nvim-left-exits") then
   vim.keymap.set("n", "<Left>", function()
     local no_edits = #vim.fn.getbufinfo({ bufmodified = 1 }) == 0
     if no_edits and vim.fn.col(".") == 1 then
+      -- Tell the launcher (flush-input.sh) we left via a (possibly held) left, so it
+      -- drains the key's auto-repeat until you release instead of letting it overshoot
+      -- xpdt up through directories. The repeats arrive after Neovim closes, so a plain
+      -- flush misses them; this flag switches flush-input.sh into drain-until-quiet mode.
+      pcall(vim.fn.writefile, {}, "/tmp/xpdt-nvim-left-exit")
       vim.cmd("qall")
     else
       vim.cmd("normal! h")
