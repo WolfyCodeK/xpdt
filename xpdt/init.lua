@@ -153,12 +153,12 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
           --bind 'enter:accept')
         if [ -n "$FILE" ]; then
           FULL=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "$FILE")
-          # right / enter both confirm the focused hit: a folder is selected (jump to
-          # it in the browser), a file opens in Neovim - the same as the main view.
+          # right / enter both confirm the focused hit: a folder is entered (like the
+          # main view), a file opens in Neovim (or the preview first, per the setting).
+          # ChangeDirectory fires on_directory_change -> apply_xplrignore, so filters
+          # are reset/reapplied for the new directory just like normal navigation.
           if [ -d "$FULL" ]; then
-            echo 'ResetNodeFilters' >> "${XPLR_PIPE_MSG_IN:?}"
-            echo "CallLuaSilently: 'custom.clear_xplrignore_flag'" >> "${XPLR_PIPE_MSG_IN:?}"
-            echo "FocusPath: '$FULL'" >> "${XPLR_PIPE_MSG_IN:?}"
+            echo "ChangeDirectory: '$FULL'" >> "${XPLR_PIPE_MSG_IN:?}"
           else
             XPLR_FOCUS_PATH="$FULL" sh "$X/open-or-preview.sh"
           fi

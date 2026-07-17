@@ -49,7 +49,7 @@ Cherry-pick (`ctrl-p` in the history browser): applies the focused commit onto y
 
 Stash browser (`s`): `a` apply (keeps the stash), `p` pop (apply then drop), `d` drop the selected stash, `n` new stash from the working tree (prompts for an optional message, includes untracked files), `x` clear all stashes, `enter` / `→` view the full stash diff in a pager, `←` back. All five actions go through the confirmation gate. The preview shows the stash's diff with word-level highlighting. Actions stay on letter keys so `enter` only ever views, never mutates.
 
-File / content search (`/` `\`): type to filter, `tab` toggle scope (current dir vs whole tree from the launch dir), `←` cancel. In `/` (files), `→` or `enter` confirms the focused hit - opening a file in Neovim, or jumping to a folder in the browser. In `\` (in-files), `→` opens the file on the matched line in Neovim and `enter` opens the file menu. Hits are shown as paths relative to the scope dir (leading `/`, e.g. `/sub/file`), not the full launch path.
+File / content search (`/` `\`): type to filter, `tab` toggle scope (current dir vs whole tree from the launch dir), `←` cancel. In `/` (files), `→` or `enter` confirms the focused hit - opening a file in Neovim, or entering a folder. In `\` (in-files), `→` opens the file on the matched line in Neovim and `enter` opens the file menu. Hits are shown as paths relative to the scope dir (leading `/`, e.g. `/sub/file`), not the full launch path.
 
 File preview: type to filter lines, `ctrl-y` copy the whole file to the clipboard, `enter` file menu (`open-menu.sh`), `←` back. Clearing the search keeps you on the line it took you to, instead of jumping back to the top.
 
@@ -225,7 +225,7 @@ The preview windows also set fzf's `wrap` flag, so long diff lines wrap onto the
 
 ### File and content search (`/` `\`)
 
-`search.sh` is the backend. `/` (files) uses `find` piped through `stat` and `sort` so results are newest modified first, and fzf runs with `--exact` so matches are literal substrings, not fuzzy; it also re-runs on every keystroke (fzf `change:reload`), so files created while the menu is open show up without leaving it. `\` (content) uses `ripgrep --fixed-strings --sortr=modified` (falls back to `grep`), re run on every keystroke via fzf's `change:reload`. Both emit each hit as a path relative to the scope dir (leading `/`) rather than the full launch path; `resolve.sh` turns a shown path back into the real one, which `→` / `enter` then act on: a file opens in Neovim, and a folder hit (in `/`) is selected in the browser.
+`search.sh` is the backend. `/` (files) uses `find` piped through `stat` and `sort` so results are newest modified first, and fzf runs with `--exact` so matches are literal substrings, not fuzzy; it also re-runs on every keystroke (fzf `change:reload`), so files created while the menu is open show up without leaving it. `\` (content) uses `ripgrep --fixed-strings --sortr=modified` (falls back to `grep`), re run on every keystroke via fzf's `change:reload`. Both emit each hit as a path relative to the scope dir (leading `/`) rather than the full launch path; `resolve.sh` turns a shown path back into the real one, which `→` / `enter` then act on: a file opens in Neovim, and a folder hit (in `/`) is entered.
 
 Scope: `scope.sh` reads / toggles `.search-scope` (`here` = current directory, `root` = the directory xplr was launched from). `tab` toggles it, and because the state is a file it persists across sessions and is shared by `/` and `\`. The current scope is shown in the fzf header.
 
