@@ -31,8 +31,8 @@ while : ; do
         --bind "d:execute(sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \
         --bind "c:execute(bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
         --bind "p:execute(sh $X/git-hunk-browser.sh '$ROOT' {1} {3..})+reload($LIST)" \
-        --bind "right:execute(if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi)+reload($LIST)" \
-        --bind "ctrl-e:execute(cd '$ROOT' && nvim {3..})+reload($LIST)" \
+        --bind "right:execute(if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh)+reload($LIST)" \
+        --bind "ctrl-e:execute(cd '$ROOT' && nvim {3..}; sh $X/flush-input.sh)+reload($LIST)" \
         --bind 'enter:accept,left:abort')
   [ -z "$LINE" ] && exit 0
   GROUP=$(printf '%s\n' "$LINE" | awk '{print $1}')
