@@ -18,3 +18,6 @@ else
 fi
 "$XPLR" -m 'CallLuaSilently: custom.invalidate_git' 2>/dev/null
 "$XPLR" -m ExplorePwdAsync 2>/dev/null
+# Drop input buffered while Neovim was open (a held `left` from the left-exits-nvim
+# setting auto-repeats as the editor closes) so it does not walk xpdt up directories.
+sh "$HOME/.config/xpdt/flush-input.sh"
