@@ -132,6 +132,38 @@ reload_timer:start(1000, 1000, vim.schedule_wrap(function() vim.cmd("silent! che
 -- needs an OSC52-capable terminal or provider; locally on macOS it just works.)
 vim.keymap.set("n", "<leader>Y", "<cmd>%y+<cr>", { desc = "Copy whole file to clipboard" })
 
+-- Read a boolean xpdt setting from ~/.config/xpdt/.gate-config (key=1 -> true).
+local function xpdt_setting_on(key)
+  local f = io.open(vim.fn.expand("~/.config/xpdt/.gate-config"), "r")
+  if not f then
+    return false
+  end
+  local on = false
+  local pat = "^" .. key:gsub("%-", "%%-") .. "=1%s*$"
+  for line in f:lines() do
+    if line:match(pat) then
+      on = true
+    end
+  end
+  f:close()
+  return on
+end
+
+-- Optional (xpdt setting "nvim-left-exits"): when nothing is modified, <Left> at the
+-- start of a line quits back to xpdt - so `left` still means "back" once you can go no
+-- further left, matching the file manager. It never fires with unsaved edits (it
+-- checks that no buffer is modified), and only rebinds the arrow, not `h`.
+if xpdt_setting_on("nvim-left-exits") then
+  vim.keymap.set("n", "<Left>", function()
+    local no_edits = #vim.fn.getbufinfo({ bufmodified = 1 }) == 0
+    if no_edits and vim.fn.col(".") == 1 then
+      vim.cmd("qall")
+    else
+      vim.cmd("normal! h")
+    end
+  end, { desc = "Left, or exit to xpdt at line start when there are no edits" })
+end
+
 -- ===========================================================================
 -- Intellisense (LSP), opt-in per language via xpdt's `,` settings menu.
 --
