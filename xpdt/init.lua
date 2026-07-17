@@ -326,35 +326,63 @@ local function git_status(root)
   end
   local dirty = {}
   local lines = {}
-  local handle = io.popen('git -C "' .. root .. '" status --porcelain 2>/dev/null')
+  local ignored = {} -- exact ignored file paths
+  local ignored_dirs = {} -- ignored directories (git collapses them; treated as prefixes)
+  -- --ignored adds `!!` rows for ignored paths (ignored dirs collapsed to one entry) so
+  -- the author column can flag them; they are kept out of `lines` / `dirty`, so the
+  -- changes box and the M column ignore them exactly as before.
+  local handle = io.popen('git -C "' .. root .. '" status --porcelain --ignored 2>/dev/null')
   for line in handle:lines() do
     if #line > 3 then
-      lines[#lines + 1] = line
+      local xy = line:sub(1, 2)
       local rel = line:sub(4)
       local arrow = rel:find(" -> ", 1, true)
       if arrow then
         rel = rel:sub(arrow + 4)
       end
       rel = rel:gsub('^"', ''):gsub('"$', '')
-      local abs = root .. "/" .. rel
-      dirty[abs] = true
-      local d = dir_of(abs)
-      while #d >= #root do
-        dirty[d] = true
-        if d == root then
-          break
+      if xy == "!!" then
+        if rel:sub(-1) == "/" then
+          ignored_dirs[#ignored_dirs + 1] = root .. "/" .. rel:sub(1, -2)
+        else
+          ignored[root .. "/" .. rel] = true
         end
-        local parent = dir_of(d)
-        if parent == d then
-          break
+      else
+        lines[#lines + 1] = line
+        local abs = root .. "/" .. rel
+        dirty[abs] = true
+        local d = dir_of(abs)
+        while #d >= #root do
+          dirty[d] = true
+          if d == root then
+            break
+          end
+          local parent = dir_of(d)
+          if parent == d then
+            break
+          end
+          d = parent
         end
-        d = parent
       end
     end
   end
   handle:close()
-  git_status_cache[root] = { time = now, dirty = dirty, lines = lines }
+  git_status_cache[root] = { time = now, dirty = dirty, lines = lines, ignored = ignored, ignored_dirs = ignored_dirs }
   return git_status_cache[root]
+end
+
+-- Is `path` git-ignored, per the cached status? True for an exactly-ignored file, or
+-- anything under an ignored directory (git reports those collapsed as `dir/`).
+local function path_ignored(st, path)
+  if st.ignored and st.ignored[path] then
+    return true
+  end
+  for _, d in ipairs(st.ignored_dirs or {}) do
+    if path == d or path:sub(1, #d + 1) == (d .. "/") then
+      return true
+    end
+  end
+  return false
 end
 
 local function git_changes_body(root)
@@ -428,6 +456,13 @@ xplr.fn.builtin.fmt_general_table_row_cols_2 = function(m)
   if path:sub(1, #root + 1) ~= (root .. "/") then
     git_author_cache[path] = ""
     return ""
+  end
+
+  -- A gitignored path has no author to show; say "ignored" in bold red instead.
+  if path_ignored(git_status(root), path) then
+    local s = "\27[1;38;5;203mignored\27[0m"
+    git_author_cache[path] = s
+    return s
   end
 
   if not git_author_dir_done[dir] then
