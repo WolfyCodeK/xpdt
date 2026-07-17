@@ -149,13 +149,19 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
           --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GEN" \
           --bind "change:reload:sleep 0.1; $GEN" \
           --bind 'left:abort' \
-          --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {})\" sh $X/open-file.sh)" \
+          --bind 'right:accept' \
           --bind 'enter:accept')
         if [ -n "$FILE" ]; then
           FULL=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "$FILE")
-          echo 'ResetNodeFilters' >> "${XPLR_PIPE_MSG_IN:?}"
-          echo "CallLuaSilently: 'custom.clear_xplrignore_flag'" >> "${XPLR_PIPE_MSG_IN:?}"
-          echo "FocusPath: '$FULL'" >> "${XPLR_PIPE_MSG_IN:?}"
+          # right / enter both confirm the focused hit: a folder is selected (jump to
+          # it in the browser), a file opens in Neovim - the same as the main view.
+          if [ -d "$FULL" ]; then
+            echo 'ResetNodeFilters' >> "${XPLR_PIPE_MSG_IN:?}"
+            echo "CallLuaSilently: 'custom.clear_xplrignore_flag'" >> "${XPLR_PIPE_MSG_IN:?}"
+            echo "FocusPath: '$FULL'" >> "${XPLR_PIPE_MSG_IN:?}"
+          else
+            XPLR_FOCUS_PATH="$FULL" sh "$X/open-file.sh"
+          fi
         fi
       ]===]
     }
