@@ -163,6 +163,9 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
             XPLR_FOCUS_PATH="$FULL" sh "$X/open-or-preview.sh"
           fi
         fi
+        # Drain keystrokes buffered while fzf was open (e.g. you typed "lms" then backed
+        # out) so they do not leak into xpdt afterwards and fire key bindings (s, m, ...).
+        sh "$X/flush-input.sh"
       ]===]
     }
   }
@@ -193,6 +196,9 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
           FILE=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "${RESULT%%:*}")
           XPLR_FOCUS_PATH="$FILE" sh "$X/open-menu.sh"
         fi
+        # Drain keystrokes buffered while fzf was open so they do not leak into xpdt
+        # afterwards and fire key bindings.
+        sh "$X/flush-input.sh"
       ]===]
     }
   }
