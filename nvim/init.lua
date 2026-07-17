@@ -115,6 +115,11 @@ require("lazy").setup({
   -- Installs the language servers you enable in xpdt's settings (see the LSP block
   -- below). Only the servers you pick are fetched, into Mason's own isolated dir.
   { "mason-org/mason.nvim", lazy = false, build = ":MasonUpdate", config = function() require("mason").setup() end },
+  -- Per-server LSP configs (the community standard). We keep Neovim's built-in LSP
+  -- client + completion and Mason for installs; lspconfig just supplies each server's
+  -- correct cmd / root / init_options / settings - e.g. the ESLint and ts_ls quirks a
+  -- hand-rolled config gets wrong. vim.lsp.enable() reads its lsp/<name>.lua files.
+  { "neovim/nvim-lspconfig", lazy = false },
 })
 
 -- theme (fires the ColorScheme autocmd that applies the bat palette)
@@ -167,16 +172,20 @@ end
 -- ===========================================================================
 -- Intellisense (LSP), opt-in per language via xpdt's `,` settings menu.
 --
--- That menu writes lsp-<name>=1 to ~/.config/xpdt/.gate-config for each language
--- you turn on. We read it and, for every enabled language whose server binary is
--- on PATH, configure and start it with Neovim's built-in LSP + built-in completion
--- (no extra plugins). Nothing is installed automatically - you install only the
--- handful of servers you want; `:XpdtLsp` shows each one's status and, if it is
--- turned on but missing, the command to install it. Keys here match the menu keys.
+-- That menu writes lsp-<name>=1 to ~/.config/xpdt/.gate-config for each language you
+-- turn on. We read it and, for each enabled language, start its server with Neovim's
+-- built-in LSP client + built-in completion. nvim-lspconfig supplies each server's
+-- config (cmd / root / init_options / settings - the details a hand-rolled config
+-- gets wrong for ts_ls, eslint, tailwind, ...) via vim.lsp.enable, and Mason installs
+-- the servers you pick (only those) into its own dir. `:XpdtLsp` shows each one's
+-- status and, if it cannot be installed, the manual command. Keys match the menu
+-- keys; `lsp` is the lspconfig server name, `cmd`/`filetypes` are kept only for the
+-- PATH check and the re-attach-on-install nicety (the live config comes from lspconfig).
 -- ===========================================================================
 local SERVERS = {
   lua = {
     label = "Lua",
+    lsp = "lua_ls",
     cmd = { "lua-language-server" },
     filetypes = { "lua" },
     root_markers = { ".luarc.json", ".luarc.jsonc", ".git" },
@@ -185,6 +194,7 @@ local SERVERS = {
   },
   python = {
     label = "Python",
+    lsp = "pyright",
     cmd = { "pyright-langserver", "--stdio" },
     filetypes = { "python" },
     root_markers = { "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", ".git" },
@@ -194,6 +204,7 @@ local SERVERS = {
     -- Django template intellisense (tags, filters, {% url %} names, {% static %}
     -- paths, block names, context vars). Python itself is covered by pyright above.
     label = "Django (templates)",
+    lsp = "djlsp",
     cmd = { "djlsp" },
     filetypes = { "html", "htmldjango" },
     root_markers = { "manage.py", "pyproject.toml", ".git" },
@@ -201,6 +212,7 @@ local SERVERS = {
   },
   typescript = {
     label = "TypeScript / JavaScript",
+    lsp = "ts_ls",
     cmd = { "typescript-language-server", "--stdio" },
     filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact" },
     root_markers = { "tsconfig.json", "jsconfig.json", "package.json", ".git" },
@@ -208,6 +220,7 @@ local SERVERS = {
   },
   html = {
     label = "HTML",
+    lsp = "html",
     cmd = { "vscode-html-language-server", "--stdio" },
     filetypes = { "html" },
     root_markers = { "package.json", ".git" },
@@ -215,6 +228,7 @@ local SERVERS = {
   },
   css = {
     label = "CSS",
+    lsp = "cssls",
     cmd = { "vscode-css-language-server", "--stdio" },
     filetypes = { "css", "scss", "less" },
     root_markers = { "package.json", ".git" },
@@ -222,6 +236,7 @@ local SERVERS = {
   },
   json = {
     label = "JSON",
+    lsp = "jsonls",
     cmd = { "vscode-json-language-server", "--stdio" },
     filetypes = { "json", "jsonc" },
     root_markers = { ".git" },
@@ -229,6 +244,7 @@ local SERVERS = {
   },
   bash = {
     label = "Bash",
+    lsp = "bashls",
     cmd = { "bash-language-server", "start" },
     filetypes = { "sh", "bash" },
     root_markers = { ".git" },
@@ -236,6 +252,7 @@ local SERVERS = {
   },
   rust = {
     label = "Rust",
+    lsp = "rust_analyzer",
     cmd = { "rust-analyzer" },
     filetypes = { "rust" },
     root_markers = { "Cargo.toml", ".git" },
@@ -243,6 +260,7 @@ local SERVERS = {
   },
   go = {
     label = "Go",
+    lsp = "gopls",
     cmd = { "gopls" },
     filetypes = { "go", "gomod", "gowork" },
     root_markers = { "go.mod", ".git" },
@@ -250,6 +268,7 @@ local SERVERS = {
   },
   tailwind = {
     label = "Tailwind CSS",
+    lsp = "tailwindcss",
     cmd = { "tailwindcss-language-server", "--stdio" },
     filetypes = { "html", "css", "javascriptreact", "typescriptreact", "vue", "svelte" },
     root_markers = { "tailwind.config.js", "tailwind.config.ts", "tailwind.config.cjs", ".git" },
@@ -257,6 +276,7 @@ local SERVERS = {
   },
   svelte = {
     label = "Svelte",
+    lsp = "svelte",
     cmd = { "svelteserver", "--stdio" },
     filetypes = { "svelte" },
     root_markers = { "package.json", ".git" },
@@ -264,6 +284,7 @@ local SERVERS = {
   },
   eslint = {
     label = "ESLint",
+    lsp = "eslint",
     cmd = { "vscode-eslint-language-server", "--stdio" },
     filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact", "vue", "svelte" },
     root_markers = { ".eslintrc", ".eslintrc.js", ".eslintrc.json", "eslint.config.js", "package.json", ".git" },
@@ -341,15 +362,15 @@ vim.api.nvim_create_autocmd("LspAttach", {
   end,
 })
 
+-- Start a server using nvim-lspconfig's config for it (spec.lsp = the lspconfig
+-- server name), layering our own settings over it when we have any. vim.lsp.enable
+-- reads lspconfig's lsp/<name>.lua from the runtimepath.
 local function enable_server(name)
   local spec = SERVERS[name]
-  vim.lsp.config(name, {
-    cmd = spec.cmd,
-    filetypes = spec.filetypes,
-    root_markers = spec.root_markers,
-    settings = spec.settings,
-  })
-  vim.lsp.enable(name)
+  if spec.settings then
+    vim.lsp.config(spec.lsp, { settings = spec.settings })
+  end
+  vim.lsp.enable(spec.lsp)
 end
 
 -- For each enabled language: if its server is already on PATH, start it now;
