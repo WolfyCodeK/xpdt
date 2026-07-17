@@ -24,7 +24,8 @@ get two commands:
   browser - and copies the whole file to the clipboard with `<space>Y`.
   It also adds opt-in, per-language **intellisense** (LSP) - you pick the languages and
   frameworks you want in xpdt's settings menu and it installs just those servers for you
-  (via Mason); it uses Neovim's built-in LSP and completion. See `xpdt/README.md`.
+  (via Mason); it uses Neovim's built-in LSP client and completion, with nvim-lspconfig supplying each
+  server's config. See `xpdt/README.md`.
 
 ## Install
 
