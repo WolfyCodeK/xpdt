@@ -5,7 +5,7 @@
 # Mirrors git-changes-browser.sh (list resize on load, reload after each action).
 DIR="${XPLR_DIR:-${XPLR_FOCUS_PATH:-$PWD}}"
 [ -f "$DIR" ] && DIR="$(dirname "$DIR")"
-ROOT="$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)"
+ROOT="$(sh "$HOME/.config/xpdt/repo-root.sh" "$DIR")"
 [ -z "$ROOT" ] && exit 0
 
 X="$HOME/.config/xpdt"

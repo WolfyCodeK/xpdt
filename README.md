@@ -14,7 +14,6 @@ get two commands:
 
 - **`xpdt/`** goes in `~/.config/xpdt`. The customised xplr config: git changes,
   log and stash browsers, an inline diff viewer with change-to-change navigation,
-  a syntax-highlighted file preview with search and clean line-range copy,
   file create/delete/move, a git command menu, a toggleable two-digit
   confirmation gate on every mutating action, and full Nerd Font theming.
   Detailed docs are in [`xpdt/README.md`](xpdt/README.md).
