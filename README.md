@@ -20,7 +20,8 @@ get two commands:
 - **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter on its
   `main` branch - which builds parsers with the pinned `tree-sitter` CLI, needs a C
   compiler present - a Monokai theme colour-matched to bat, plus leap, surround, comment,
-  lualine and indent guides) that opens from the xpdt preview or the git changes browser with `ctrl-e`.
+  lualine and indent guides) that opens files from xpdt - `→` on a file, or `ctrl-e` in the git changes
+  browser - and copies the whole file to the clipboard with `<space>Y`.
   It also adds opt-in, per-language **intellisense** (LSP) - you pick the languages and
   frameworks you want in xpdt's settings menu and it installs just those servers for you
   (via Mason); it uses Neovim's built-in LSP and completion. See `xpdt/README.md`.

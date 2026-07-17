@@ -51,6 +51,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "V"          "select whole lines"
   row "Ctrl-v"     "select a block"
   row "y"          "yank selection (copies to macOS clipboard)"
+  row "Space Y"    "copy the whole file to the clipboard"
   row "d"          "delete the selection"
   row "c"          "change the selection"
   sec "SEARCH & SAVE"
