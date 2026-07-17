@@ -74,6 +74,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   sec "SEARCH  (/ and \\)"
   row "type" "filter"
   row "tab" "toggle scope (here / whole tree)"
+  row "left" "delete back through the query; exit when it is empty"
   row "right" "open a file (\\: at the matched line), or enter a folder (/)"
   row "enter" "same as right (/), or the file menu (\\)"
   sec "SETTINGS  (,)"

@@ -148,7 +148,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
           --header="$(sh $X/scope.sh header "$SF")" \
           --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GEN" \
           --bind "change:reload:sleep 0.1; $GEN" \
-          --bind 'left:abort' \
+          --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { touch /tmp/xpdt-left-exit; echo abort; }' \
           --bind 'right:accept' \
           --bind 'enter:accept')
         if [ -n "$FILE" ]; then
@@ -185,7 +185,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
             --header="$(sh $X/scope.sh header "$SF")" \
             --bind "change:reload:sleep 0.1; $GENQ {q}" \
             --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
-            --bind 'left:abort' \
+            --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { touch /tmp/xpdt-left-exit; echo abort; }' \
             --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/open-or-preview.sh)" \
             --bind 'enter:accept' \
             --delimiter : \
