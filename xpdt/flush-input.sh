@@ -4,17 +4,18 @@
 #
 # Two cases:
 #
-# 1. A left-exit from Neovim (the left-exits-nvim setting) where the key may still be
-#    HELD. Auto-repeat has an initial delay, so the repeats arrive *after* Neovim has
-#    closed - a one-shot flush runs too early and misses them. So when the Neovim
-#    left-exit mapping leaves its flag file, we instead sit here draining the terminal
-#    until the key is released (input goes quiet), keeping xpdt suspended meanwhile, so
-#    it resumes only once you let go - no shooting back up through directories. `first`
+# 1. A left-exit where the key may still be HELD: leaving Neovim via the left-exits-nvim
+#    mapping, or backing out of the / \ search (left deletes the query, then a final left
+#    at the empty query aborts). Both leave the flag file. Auto-repeat has an initial
+#    delay, so the repeats arrive *after* the program has closed - a one-shot flush runs
+#    too early and misses them. So on the flag we sit here draining the terminal until
+#    the key is released (input goes quiet), keeping xpdt suspended meanwhile, so it
+#    resumes only once you let go - no shooting back up through directories. `first`
 #    waits out the auto-repeat's initial delay; `quiet` detects the release.
 #
 # 2. Any other buffered burst (e.g. letters typed into the / or \ search then aborted):
 #    the bytes are already queued, so a single tcflush clears them.
-FLAG="/tmp/xpdt-nvim-left-exit"
+FLAG="/tmp/xpdt-left-exit"
 if [ -f "$FLAG" ]; then
   rm -f "$FLAG"
   python3 -c '

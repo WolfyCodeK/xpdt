@@ -204,7 +204,7 @@ if xpdt_setting_on("nvim-left-exits") then
       -- drains the key's auto-repeat until you release instead of letting it overshoot
       -- xpdt up through directories. The repeats arrive after Neovim closes, so a plain
       -- flush misses them; this flag switches flush-input.sh into drain-until-quiet mode.
-      pcall(vim.fn.writefile, {}, "/tmp/xpdt-nvim-left-exit")
+      pcall(vim.fn.writefile, {}, "/tmp/xpdt-left-exit")
       vim.cmd("qall")
     else
       vim.cmd("normal! h")
