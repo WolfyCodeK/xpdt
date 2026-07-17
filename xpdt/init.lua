@@ -149,7 +149,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
           --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GEN" \
           --bind "change:reload:sleep 0.1; $GEN" \
           --bind 'left:abort' \
-          --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {})\" sh $X/preview-file.sh)" \
+          --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {})\" sh $X/open-file.sh)" \
           --bind 'enter:accept')
         if [ -n "$FILE" ]; then
           FULL=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "$FILE")
@@ -177,7 +177,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
             --bind "change:reload:sleep 0.1; $GENQ {q}" \
             --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
             --bind 'left:abort' \
-            --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/preview-file.sh)" \
+            --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/open-file.sh)" \
             --bind 'enter:accept' \
             --delimiter : \
             --preview "F=\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \
@@ -292,12 +292,17 @@ local function regex_escape(s)
   return escaped
 end
 
+-- Resolve the git repo root for a directory. Uses repo-root.sh rather than a bare
+-- `git -C ... rev-parse` so a symlinked location keeps the git context of the real
+-- directory the symlink lives in (where you entered it from), instead of jumping to
+-- the symlink target's own repo - git -C would chdir through the symlink and resolve
+-- it physically. Cached per dir for the session.
 local function repo_root_of(dir)
   local cached = repo_root_cache[dir]
   if cached ~= nil then
     return cached
   end
-  local handle = io.popen('git -C "' .. dir .. '" rev-parse --show-toplevel 2>/dev/null')
+  local handle = io.popen('sh "' .. os.getenv("HOME") .. '/.config/xpdt/repo-root.sh" "' .. dir .. '" 2>/dev/null')
   local root = handle:read("*a"):gsub("%s+$", "")
   handle:close()
   if root == "" then
@@ -406,6 +411,15 @@ xplr.fn.builtin.fmt_general_table_row_cols_2 = function(m)
   local dir = dir_of(path)
   local root = repo_root_of(dir)
   if not root then
+    git_author_cache[path] = ""
+    return ""
+  end
+
+  -- Inside a symlinked directory the repo root is the logical origin (where the
+  -- symlink lives), which does not track the symlink's contents, so there is no
+  -- author to attribute - and the batch would query the wrong (physical) repo. Leave
+  -- the column blank, matching the modified column.
+  if path:sub(1, #root + 1) ~= (root .. "/") then
     git_author_cache[path] = ""
     return ""
   end

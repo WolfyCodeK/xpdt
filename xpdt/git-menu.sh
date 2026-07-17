@@ -1,7 +1,7 @@
 #!/bin/sh
 DIR="${XPLR_DIR:-$PWD}"
 [ -f "$DIR" ] && DIR="$(dirname "$DIR")"
-ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)
+ROOT=$(sh "$HOME/.config/xpdt/repo-root.sh" "$DIR")
 [ -z "$ROOT" ] && { printf '\nNot a git repo.\n'; sleep 0.8; exit 0; }
 
 GATE="$HOME/.config/xpdt/gate.sh"
