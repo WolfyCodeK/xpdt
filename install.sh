@@ -219,6 +219,8 @@ USAGE
   esac
 done
 
+# Map the `theme` setting to BAT_THEME + fzf colours for the child tools (bat, fzf).
+[ -f "$HOME/.config/xpdt/theme-env.sh" ] && . "$HOME/.config/xpdt/theme-env.sh"
 exec "$xplr_bin" -c "$HOME/.config/xpdt/init.lua" "$@"
 XPDT_LAUNCHER
   } > "$TMP_DIR/xpdt"
@@ -237,6 +239,7 @@ seed_gate_config() {
     echo "enabled=1"
     echo "show-hidden=1"
     echo "claude-integration=0"
+    echo "theme=monokai"
     for k in create move delete stage hunk discard commit undo cherry-pick \
       stash-apply stash-pop stash-drop stash-new stash-clear checkout pull; do
       echo "$k=1"
@@ -245,6 +248,30 @@ seed_gate_config() {
     info "seeded confirm-gate config (all actions on) -> $cfg"
   else
     warn "could not seed $cfg (the 2-digit confirm is still on by default)"
+  fi
+}
+
+# Build the Tokyo Night bat theme (the other four themes ship with bat). Fetches the
+# .tmTheme once into bat's config dir and rebuilds bat's cache. Best-effort: on failure
+# (e.g. offline) the Tokyo Night preview/diff falls back to bat's default and every
+# other surface is unaffected.
+TOKYONIGHT_REF=v4.11.0
+install_bat_theme() {
+  bat_bin="$BIN_DIR/bat"; [ -x "$bat_bin" ] || bat_bin=$(command -v bat 2>/dev/null)
+  [ -n "$bat_bin" ] || { warn "bat not found; skipping the Tokyo Night bat theme"; return 0; }
+  themes_dir="$HOME/.config/bat/themes"
+  mkdir -p "$themes_dir" 2>/dev/null || return 0
+  tn="$themes_dir/tokyonight_night.tmTheme"
+  url="https://raw.githubusercontent.com/folke/tokyonight.nvim/$TOKYONIGHT_REF/extras/sublime/tokyonight_night.tmTheme"
+  if dl "$url" "$tn" 2>/dev/null && [ -s "$tn" ]; then
+    if "$bat_bin" cache --build >/dev/null 2>&1; then
+      info "built the Tokyo Night bat theme"
+    else
+      warn "could not build bat's theme cache (Tokyo Night preview falls back to default)"
+    fi
+  else
+    rm -f "$tn" 2>/dev/null
+    warn "could not fetch the Tokyo Night bat theme (its preview falls back to default)"
   fi
 }
 
@@ -269,6 +296,7 @@ if [ "$DO_CONFIG" = 1 ]; then
   link_config xpdt; link_config nvim
   install_launcher
   seed_gate_config
+  install_bat_theme
 fi
 if [ "$DO_TOOLS" = 1 ] && [ "$DO_CONFIG" = 1 ] && [ "$DO_NVIM_BOOTSTRAP" = 1 ]; then
   step "bootstrapping neovim"

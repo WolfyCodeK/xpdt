@@ -13,6 +13,7 @@ X="$HOME/.config/xpdt"
 # but still reload+pos so the cursor stays put when one is (harmlessly) activated.
 case "${1:-}" in
   ''|'#'*) : ;;
+  theme:*) sh "$X/gate.sh" settheme "${1#theme:}" ;;
   *) sh "$X/gate.sh" toggle "$1" ;;
 esac
 printf 'reload-sync(sh %s/gate.sh menu)+pos(%s)' "$X" "$(( ${2:-0} + 1 ))"

@@ -23,6 +23,33 @@ vim.opt.signcolumn = "yes"
 vim.opt.wrap = true
 vim.opt.breakindent = true
 
+-- The active colour theme, from xpdt's `,` settings menu (~/.config/xpdt/.gate-config,
+-- `theme=<name>`, default monokai). Maps to the colorscheme applied below; only Monokai
+-- layers the bat-matched palette (the other themes' own colorschemes already match
+-- their bat theme).
+local function xpdt_theme()
+  local t = "monokai"
+  local f = io.open(vim.fn.expand("~/.config/xpdt/.gate-config"), "r")
+  if f then
+    for line in f:lines() do
+      local v = line:match("^theme=(%w+)")
+      if v then
+        t = v
+      end
+    end
+    f:close()
+  end
+  return t
+end
+local XPDT_THEME = xpdt_theme()
+local XPDT_COLORSCHEME = ({
+  monokai = "monokai",
+  gruvbox = "gruvbox",
+  nord = "nord",
+  dracula = "dracula",
+  tokyonight = "tokyonight-night",
+})[XPDT_THEME] or "monokai"
+
 -- bat Monokai Extended palette, layered over the colorscheme
 local function bat_palette()
   local P = {
@@ -52,11 +79,20 @@ local function bat_palette()
   hl(0, "@type.classdef", { fg = P.cyan, underline = true })
   hl(0, "@type.inherited", { fg = P.green, underline = true })
 end
-vim.api.nvim_create_autocmd("ColorScheme", { callback = bat_palette })
+-- Only Monokai uses the hand-tuned bat palette; the other themes stand on their own.
+if XPDT_THEME == "monokai" then
+  vim.api.nvim_create_autocmd("ColorScheme", { callback = bat_palette })
+end
 
 -- plugins
 require("lazy").setup({
   { "tanvirtin/monokai.nvim", lazy = false, priority = 1000 },
+  -- Extra colour themes, selectable in xpdt's `,` settings menu (only the chosen one
+  -- is applied at startup). Small, pure-Lua colorschemes.
+  { "ellisonleao/gruvbox.nvim", lazy = false, priority = 1000 },
+  { "shaunsingh/nord.nvim", lazy = false, priority = 1000 },
+  { "Mofiqul/dracula.nvim", lazy = false, priority = 1000 },
+  { "folke/tokyonight.nvim", lazy = false, priority = 1000 },
   {
     -- The `main` branch, not `master`: master is frozen and only supports Neovim
     -- <= 0.10, so on 0.11+/0.12 its queries error (e.g. opening a markdown file:
@@ -122,8 +158,10 @@ require("lazy").setup({
   { "neovim/nvim-lspconfig", lazy = false },
 })
 
--- theme (fires the ColorScheme autocmd that applies the bat palette)
-vim.cmd.colorscheme("monokai")
+-- theme (for monokai this fires the ColorScheme autocmd that applies the bat palette)
+if not pcall(vim.cmd.colorscheme, XPDT_COLORSCHEME) then
+  pcall(vim.cmd.colorscheme, "monokai")
+end
 
 -- live reload: pick up external changes like the preview does
 vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "FocusGained", "BufEnter" }, { command = "silent! checktime" })

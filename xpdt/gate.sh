@@ -53,8 +53,26 @@ eslint|ESLint (framework)
 EOF
 }
 
-get() { # get KEY -> 1 (on) or 0 (off). Confirmation actions and show-hidden default
-        # on; claude-integration and the lsp-* language toggles are opt-in (off).
+# Colour themes (key|label). One applies at a time (radio, not a toggle); it recolours
+# xpdt, Neovim, the bat previews/diffs and the fzf browsers. Default monokai.
+theme_rows() {
+  cat <<'EOF'
+monokai|Monokai (default)
+gruvbox|Gruvbox
+nord|Nord
+dracula|Dracula
+tokyonight|Tokyo Night
+EOF
+}
+
+get() { # get KEY -> 1 (on) or 0 (off), or for `theme` the theme name (default monokai).
+        # Confirmation actions and show-hidden default on; claude-integration and the
+        # lsp-* language toggles are opt-in (off).
+  if [ "$1" = theme ]; then
+    v=$(sed -n 's/^theme=//p' "$CFG" 2>/dev/null | head -n1)
+    [ -n "$v" ] && printf '%s\n' "$v" || echo monokai
+    return
+  fi
   if [ -f "$CFG" ]; then
     v=$(sed -n "s/^$1=//p" "$CFG" 2>/dev/null | head -n1)
     case "$v" in 0) echo 0; return ;; 1) echo 1; return ;; esac
@@ -87,10 +105,24 @@ required() { # exit 0 if ACTION needs the code (master on AND this action on)
 }
 
 box() { [ "$1" = 1 ] && printf '\033[32m[x]\033[0m' || printf '\033[90m[ ]\033[0m'; }
+radio() { [ "$1" = 1 ] && printf '\033[32m●\033[0m' || printf '\033[90m○\033[0m'; }
 
 case "${1:-}" in
   get) get "$2" ;;
   toggle) toggle "$2" ;;
+  settheme)
+    case "$2" in
+      monokai | gruvbox | nord | dracula | tokyonight) ;;
+      *) exit 1 ;;
+    esac
+    ensure_cfg
+    if grep -q '^theme=' "$CFG" 2>/dev/null; then
+      tmp="$CFG.$$"
+      sed "s/^theme=.*/theme=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
+    else
+      echo "theme=$2" >> "$CFG"
+    fi
+    ;;
   required) required "$2" ;;
   confirm)
     action="$2"; msg="$3"
@@ -133,6 +165,14 @@ case "${1:-}" in
     printf 'nvim-left-exits %s In Neovim, left at the start of a line (no edits) goes back to xpdt\n' "$(box "$(get nvim-left-exits)")"
 
     gap
+    hdr 'THEME'
+    sub 'Recolours xpdt, Neovim, bat previews and the fzf browsers (relaunch xpdt to apply)'
+    cur=$(get theme)
+    theme_rows | while IFS='|' read -r k label; do
+      printf 'theme:%s %s   %s\n' "$k" "$(radio "$([ "$k" = "$cur" ] && echo 1 || echo 0)")" "$label"
+    done
+
+    gap
     hdr 'NEOVIM INTELLISENSE'
     sub 'Turn on per language; install only the ones you pick (:XpdtLsp in nvim)'
     lsp_rows | while IFS='|' read -r k label; do
@@ -153,5 +193,5 @@ case "${1:-}" in
       fi
     done
     ;;
-  *) echo "usage: gate.sh {get|toggle|required|confirm|menu} ..." >&2; exit 2 ;;
+  *) echo "usage: gate.sh {get|toggle|settheme|required|confirm|menu} ..." >&2; exit 2 ;;
 esac
