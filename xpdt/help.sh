@@ -75,7 +75,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "tab" "toggle scope (here / whole tree)"
   row "right/enter" "open a file, or enter a folder"
   sec "SETTINGS  (,)"
-  row "enter" "toggle the focused row (confirmations, show hidden files)"
+  row "enter" "toggle a setting, or pick the focused theme"
   row "left" "close"
   printf "\n  ${D}%s${Z}\n" "(press q or h to close)"
 } | sh "$HOME/.config/xpdt/popup.sh" "xpdt controls"
