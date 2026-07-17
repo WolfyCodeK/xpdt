@@ -255,11 +255,15 @@ local SERVERS = {
   },
   typescript = {
     label = "TypeScript / JavaScript",
-    lsp = "ts_ls",
-    cmd = { "typescript-language-server", "--stdio" },
+    -- vtsls, not typescript-language-server: vtsls bundles its own TypeScript, so it
+    -- resolves without a workspace or global `typescript` install. typescript-language-
+    -- server otherwise fails to initialise with "Could not find a valid TypeScript
+    -- installation" when the project has no typescript on hand.
+    lsp = "vtsls",
+    cmd = { "vtsls", "--stdio" },
     filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact" },
     root_markers = { "tsconfig.json", "jsconfig.json", "package.json", ".git" },
-    install = "npm i -g typescript typescript-language-server",
+    install = "npm i -g @vtsls/language-server",
   },
   html = {
     label = "HTML",
@@ -346,7 +350,7 @@ local MASON = {
   lua = "lua-language-server",
   python = "pyright",
   django = "django-template-lsp",
-  typescript = "typescript-language-server",
+  typescript = "vtsls",
   html = "html-lsp",
   css = "css-lsp",
   json = "json-lsp",
