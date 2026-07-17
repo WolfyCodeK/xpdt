@@ -60,7 +60,7 @@ get() { # get KEY -> 1 (on) or 0 (off). Confirmation actions and show-hidden def
     case "$v" in 0) echo 0; return ;; 1) echo 1; return ;; esac
   fi
   case "$1" in
-    claude-integration | lsp-*) echo 0 ;;
+    claude-integration | lsp-* | preview-before-nvim | nvim-left-exits) echo 0 ;;
     *) echo 1 ;;
   esac
 }
@@ -126,6 +126,11 @@ case "${1:-}" in
     hdr 'GENERAL'
     printf 'show-hidden %s Show hidden files (dotfiles) - applies on next launch\n' "$(box "$(get show-hidden)")"
     printf 'claude-integration %s Claude session list in the git history panel\n' "$(box "$(get claude-integration)")"
+
+    gap
+    hdr 'OPENING FILES'
+    printf 'preview-before-nvim %s Preview a file first, instead of opening it straight in Neovim\n' "$(box "$(get preview-before-nvim)")"
+    printf 'nvim-left-exits %s In Neovim, left at the start of a line (no edits) goes back to xpdt\n' "$(box "$(get nvim-left-exits)")"
 
     gap
     hdr 'NEOVIM INTELLISENSE'

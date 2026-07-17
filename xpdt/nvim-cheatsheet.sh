@@ -62,6 +62,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row ":q"         "quit"
   row ":wq"        "save and quit"
   row ":q!"        "quit without saving"
+  row "left"       "at line start with no edits: back to xpdt (if enabled in settings)"
   sec "INTELLISENSE (when enabled for the language in xpdt settings)"
   row "Ctrl-Space" "trigger completion (also pops up as you type)"
   row "K"          "hover: type / documentation under the cursor"

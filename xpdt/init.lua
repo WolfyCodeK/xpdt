@@ -128,7 +128,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["right"] = {
         if [ -d "$XPLR_FOCUS_PATH" ]; then
           echo 'Enter' >> "${XPLR_PIPE_MSG_IN:?}"
         else
-          "$XPLR" -m 'BashExec: %q' "sh $HOME/.config/xpdt/open-file.sh"
+          "$XPLR" -m 'BashExec: %q' "sh $HOME/.config/xpdt/open-or-preview.sh"
         fi
       ]===]
     }
@@ -160,7 +160,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
             echo "CallLuaSilently: 'custom.clear_xplrignore_flag'" >> "${XPLR_PIPE_MSG_IN:?}"
             echo "FocusPath: '$FULL'" >> "${XPLR_PIPE_MSG_IN:?}"
           else
-            XPLR_FOCUS_PATH="$FULL" sh "$X/open-file.sh"
+            XPLR_FOCUS_PATH="$FULL" sh "$X/open-or-preview.sh"
           fi
         fi
       ]===]
@@ -183,7 +183,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
             --bind "change:reload:sleep 0.1; $GENQ {q}" \
             --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
             --bind 'left:abort' \
-            --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/open-file.sh)" \
+            --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/open-or-preview.sh)" \
             --bind 'enter:accept' \
             --delimiter : \
             --preview "F=\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \

@@ -20,22 +20,22 @@ The key legend is no longer an always-on panel (it ran off the side of narrow te
 
 Main directory view:
 
-| Key      | Action                                                     |
-| -------- | ---------------------------------------------------------- |
-| `↑ ↓`    | move                                                       |
-| `→`      | enter directory, or open a file in Neovim (`open-file.sh`) |
-| `←`      | up a directory (xplr built in)                             |
-| `enter`  | repo changes browser (`git-changes-browser.sh`)            |
-| `;`      | commit history browser (`git-log-browser.sh`)              |
-| `s`      | stash browser (`git-stash-browser.sh`)                     |
-| `/`      | find files by name (`search.sh files`)                     |
-| `\`      | search inside files (`search.sh content`)                  |
-| `'`      | jump back to the directory xplr was opened from            |
-| `w`      | hop to the next sibling git repo (`next-git-repo.sh`)      |
-| `,`      | settings menu (`gate-menu.sh`)                             |
-| `h`      | controls / help popup (`help.sh`)                          |
-| `ctrl-h` | neovim cheat sheet popup (`nvim-cheatsheet.sh`)            |
-| `q`      | quit (xplr built in)                                       |
+| Key      | Action                                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------------------------- |
+| `↑ ↓`    | move                                                                                                           |
+| `→`      | enter directory, or open a file - in Neovim, or the preview first if that setting is on (`open-or-preview.sh`) |
+| `←`      | up a directory (xplr built in)                                                                                 |
+| `enter`  | repo changes browser (`git-changes-browser.sh`)                                                                |
+| `;`      | commit history browser (`git-log-browser.sh`)                                                                  |
+| `s`      | stash browser (`git-stash-browser.sh`)                                                                         |
+| `/`      | find files by name (`search.sh files`)                                                                         |
+| `\`      | search inside files (`search.sh content`)                                                                      |
+| `'`      | jump back to the directory xplr was opened from                                                                |
+| `w`      | hop to the next sibling git repo (`next-git-repo.sh`)                                                          |
+| `,`      | settings menu (`gate-menu.sh`)                                                                                 |
+| `h`      | controls / help popup (`help.sh`)                                                                              |
+| `ctrl-h` | neovim cheat sheet popup (`nvim-cheatsheet.sh`)                                                                |
+| `q`      | quit (xplr built in)                                                                                           |
 
 Every mutating action (create / move / delete, stage / hunk / discard / commit, stash apply / pop / drop / new / clear, undo commit, git checkout / pull) runs behind the confirmation gate: by default it asks you to type two random digits first. The `,` menu turns that off globally or per action. See Confirmation gate below.
 
@@ -88,8 +88,9 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 | `help.sh`                | The `h` controls help: renders xpdt's key bindings as short vertical lines (so nothing truncates) and shows them in `popup.sh`.                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `nvim-cheatsheet.sh`     | The `ctrl-h` neovim key cheat sheet, shown in `popup.sh`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `popup.sh`               | Shared popup window: shows piped-in text in a bordered, scrollable `fzf` box (used by `help.sh` and `nvim-cheatsheet.sh`).                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `open-file.sh`           | Opens the focused file in Neovim - `→` on a file in the main view and `→` on a `/` `\` search hit both use it (the `\` in-files search passes the matched line so it opens there). Neovim opens in normal mode, so it reads as well as edits. Refreshes the git panels afterwards in case the file changed.                                                                                                                                                                                                                       |
-| `preview-file.sh`        | Full screen file preview (`bat` + `wrap-lines.py` + fzf) with in-file search and clean, indent-aware line-range copy. Not currently bound to a key - `→` opens Neovim both in the main view and on a `/` `\` search hit. Retained so it can be put back on a dedicated key.                                                                                                                                                                                                                                                       |
+| `open-file.sh`           | Opens the focused file in Neovim (normal mode, so it reads as well as edits); the `\` in-files search passes the matched line so it opens there. Reached from `open-or-preview.sh`. Refreshes the git panels afterwards in case the file changed.                                                                                                                                                                                                                                                                                 |
+| `open-or-preview.sh`     | Dispatches `→` on a file: shows `preview-file.sh` first when the "Preview file before opening in Neovim" setting is on, else `open-file.sh` (straight to Neovim). Reads the setting live, so the main view and both searches stay consistent.                                                                                                                                                                                                                                                                                     |
+| `preview-file.sh`        | Full screen file preview (`bat` + `wrap-lines.py` + fzf) with in-file search and clean, indent-aware line-range copy. Shown by `→` (main view and `/` `\` search) when the "Preview file before opening in Neovim" setting is on; its `ctrl-e` then opens Neovim at the line. Off by default, in which case `→` opens Neovim directly.                                                                                                                                                                                            |
 | `wrap-lines.py`          | ANSI aware, indent preserving line wrapper for the file preview. Adds the line number gutter and remaps the `\` search jump position.                                                                                                                                                                                                                                                                                                                                                                                             |
 | `wrap-header.sh`         | Wraps an fzf header (key legend) onto multiple lines for narrow terminals - fzf truncates long headers rather than wrapping. Packs the space-separated items into lines that fit the tty width; used by every browser's `--header`.                                                                                                                                                                                                                                                                                               |
 | `preview-track.sh`       | Remembers the line the preview search lands on and restores it when the query is cleared (bound to fzf's `result` event; fzf otherwise resets the cursor to the top on every query change).                                                                                                                                                                                                                                                                                                                                       |
@@ -228,9 +229,16 @@ The preview windows also set fzf's `wrap` flag, so long diff lines wrap onto the
 
 Scope: `scope.sh` reads / toggles `.search-scope` (`here` = current directory, `root` = the directory xplr was launched from). `tab` toggles it, and because the state is a file it persists across sessions and is shared by `/` and `\`. The current scope is shown in the fzf header.
 
+### Opening files (settings)
+
+Two toggles in the `,` menu shape how files open, both off by default:
+
+- **Preview file before opening in Neovim** - `→` on a file shows the full-screen preview first (below) instead of opening Neovim straight away; from the preview, `ctrl-e` opens Neovim at the line. `open-or-preview.sh` reads the setting live (per keypress) and dispatches to `preview-file.sh` or `open-file.sh`, so the main view and both searches behave the same.
+- **Left at the start of a line exits Neovim** - in Neovim (opened from xpdt), with no unsaved edits in any buffer, `←` at column 1 quits back to xpdt, so `left` keeps meaning "back" once the cursor can go no further left. It never fires when a buffer is modified, and rebinds only the arrow, not `h`. Read from `.gate-config` when Neovim starts.
+
 ### File preview
 
-The full-screen file preview is not bound to a key at the moment - `→` opens Neovim both on the main view and on a `/` `\` search hit - but is kept for its unique features (in-file search, clean indent-aware line-range copy) should it be put back on a dedicated key. `preview-file.sh` pipes `bat` (colour, tabs expanded) into `wrap-lines.py`, then into fzf. `wrap-lines.py` is the interesting part: it adds its own line number gutter and wraps long lines so the continuation lines line up under where the original line's content started (indent aware soft wrap), all while preserving `bat`'s ANSI colours across the wrap. It also remaps the target line for the `\` search jump, because wrapping turns one logical line into several display rows. `ctrl-y` copies the file with `pbcopy` and briefly flips the prompt to "copied to clipboard", auto reverting after two seconds via fzf's `--listen` HTTP port. fzf resets the cursor to the top whenever the query changes, so clearing a search would otherwise jump you away from the line you found; `preview-track.sh` (bound to the `result` event, which fires after filtering settles so `{n}` is the real focused line) records the landing line while you type and emits a `pos(...)` to restore it when the query goes empty.
+The full-screen file preview is shown by `→` (in the main view and on a `/` `\` search hit) when the "Preview file before opening in Neovim" setting is on - otherwise `→` opens Neovim directly (the `open-or-preview.sh` dispatch). In the preview, `ctrl-e` opens Neovim at the line you are on and `←` goes back. `preview-file.sh` pipes `bat` (colour, tabs expanded) into `wrap-lines.py`, then into fzf. `wrap-lines.py` is the interesting part: it adds its own line number gutter and wraps long lines so the continuation lines line up under where the original line's content started (indent aware soft wrap), all while preserving `bat`'s ANSI colours across the wrap. It also remaps the target line for the `\` search jump, because wrapping turns one logical line into several display rows. `ctrl-y` copies the file with `pbcopy` and briefly flips the prompt to "copied to clipboard", auto reverting after two seconds via fzf's `--listen` HTTP port. fzf resets the cursor to the top whenever the query changes, so clearing a search would otherwise jump you away from the line you found; `preview-track.sh` (bound to the `result` event, which fires after filtering settles so `{n}` is the real focused line) records the landing line while you type and emits a `pos(...)` to restore it when the query goes empty.
 
 ### VS Code diff (`open-git-diff.sh`)
 
