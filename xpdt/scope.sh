@@ -8,9 +8,9 @@ case "$ACTION" in
     ;;
   header)
     if [ "$cur" = root ]; then
-      printf 'scope: whole tree from launch dir      [tab] switch to current dir      [→] neovim      [←] cancel'
+      printf 'scope: whole tree from launch dir      [tab] switch to current dir      [→] open      [←] cancel'
     else
-      printf 'scope: current dir      [tab] switch to whole tree from launch dir      [→] neovim      [←] cancel'
+      printf 'scope: current dir      [tab] switch to whole tree from launch dir      [→] open      [←] cancel'
     fi
     ;;
 esac
