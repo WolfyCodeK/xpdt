@@ -63,6 +63,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "shift-drag" "or hold Shift instead (depends on the terminal)"
   row "" "- bypasses the mouse capture for a normal selection"
   row "right" "or open the file in neovim to v-select and y-yank"
+  row "" "- <space>Y in neovim copies the whole file to the clipboard"
   sec "SEARCH  (/ and \\)"
   row "type" "filter"
   row "tab" "toggle scope (here / whole tree)"

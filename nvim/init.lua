@@ -125,6 +125,13 @@ vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "FocusGained", "BufEn
 local reload_timer = (vim.uv or vim.loop).new_timer()
 reload_timer:start(1000, 1000, vim.schedule_wrap(function() vim.cmd("silent! checktime") end))
 
+-- Copy the whole file to the system clipboard with <leader>Y (space then shift-Y).
+-- clipboard=unnamedplus already routes yanks to the system clipboard (pbcopy on
+-- macOS), so this is just a one-key "yank the entire buffer" - the equivalent of the
+-- old file preview's ctrl-y, now that files open in Neovim. (Over SSH the clipboard
+-- needs an OSC52-capable terminal or provider; locally on macOS it just works.)
+vim.keymap.set("n", "<leader>Y", "<cmd>%y+<cr>", { desc = "Copy whole file to clipboard" })
+
 -- ===========================================================================
 -- Intellisense (LSP), opt-in per language via xpdt's `,` settings menu.
 --

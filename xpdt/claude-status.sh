@@ -21,8 +21,15 @@ PROJ="$HOME/.claude/projects"
 [ -d "$PROJ" ] || exit 0
 SHOWN_MIN=180 # list sessions active within this many minutes
 
+# Terminal width, so a session name truncates at the window edge rather than a fixed
+# cap. Invoked via io.popen at render time (stdout is a pipe, not a tty), so read the
+# size from the controlling terminal directly.
+COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
+[ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
+[ -z "$COLS" ] && COLS=100
+
 find "$PROJ" -type f -name '*.jsonl' -not -path '*/subagents/*' -mmin "-$SHOWN_MIN" 2>/dev/null \
-  | ROOT="$ROOT" python3 -c '
+  | ROOT="$ROOT" COLS="$COLS" python3 -c '
 import sys, os, json, time, subprocess
 
 root = os.environ.get("ROOT", "").rstrip("/")
@@ -43,6 +50,15 @@ HDR = "\033[1;38;5;110m" # repo header
 WARN = "\033[38;5;209m"  # conflict
 RED = "\033[38;5;203m"   # near-full context
 Z = "\033[0m"
+
+COLS = int(os.environ.get("COLS") or 100)
+INNER = max(24, COLS - 4)  # claude panel content width (allow for borders/padding)
+
+def truncate(s, width):
+    width = max(4, width)
+    if len(s) <= width:
+        return s
+    return s[:width - 1].rstrip() + "…"
 
 _toplevel = {}
 def repo_of(cwd):
@@ -147,8 +163,6 @@ for path in sys.stdin.read().splitlines():
     if title is None:
         title = head_title(path)
     name = clean(title) or clean(last_prompt) or os.path.basename(path)[:8]
-    if len(name) > 30:
-        name = name[:29].rstrip() + "…"
     if owes and age < ACTIVE:
         status = "working"
     elif (owes is False) and age < WAIT:
@@ -197,23 +211,28 @@ for repo, rs in sorted(groups.items(), key=group_key):
             dot, col = AMB + "◆", AMB
         else:
             dot, col = DIM + "○", DIM
-        line = "  " + dot + Z + " " + col + r["name"] + Z
-        meta = []
+        # Metadata (context %, age, non-default model), built twice: plain to measure
+        # its width, coloured to print - so the name can fill the row to the window
+        # edge and only truncate what would not fit before the metadata.
+        meta_plain, meta_col = [], []
         if r["pct"] is not None:
             pc = RED if r["pct"] >= 85 else (AMB if r["pct"] >= 60 else DIM)
-            meta.append(pc + str(r["pct"]) + "%" + Z)
-        meta.append(DIM + fmt_age(r["age"]) + Z)
+            meta_plain.append(str(r["pct"]) + "%")
+            meta_col.append(pc + str(r["pct"]) + "%" + Z)
+        meta_plain.append(fmt_age(r["age"]))
+        meta_col.append(DIM + fmt_age(r["age"]) + Z)
         if r["model"] and r["model"] not in ("opus",):
-            meta.append(FNT + r["model"] + Z)
-        if meta:
-            line += "  " + " ".join(meta)
+            meta_plain.append(r["model"])
+            meta_col.append(FNT + r["model"] + Z)
+        meta_w = len(" ".join(meta_plain)) + 2  # + the "  " gap before the metadata
+        name = truncate(r["name"], INNER - 4 - meta_w)  # 4 = "  " + dot + " "
+        line = "  " + dot + Z + " " + col + name + Z
+        if meta_col:
+            line += "  " + " ".join(meta_col)
         out.append(line)
         if r["status"] == "working" and r["task"] and tasks_left > 0:
             tasks_left -= 1
-            task = r["task"]
-            if len(task) > 40:
-                task = task[:39].rstrip() + "…"
-            out.append("    " + FNT + task + Z)
+            out.append("    " + FNT + truncate(r["task"], INNER - 4) + Z)
 
 nw = sum(1 for r in rows if r["status"] == "working")
 nq = sum(1 for r in rows if r["status"] == "waiting")
