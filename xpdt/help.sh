@@ -73,7 +73,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   sec "SEARCH  (/ and \\)"
   row "type" "filter"
   row "tab" "toggle scope (here / whole tree)"
-  row "right/enter" "open a file, or jump to a folder"
+  row "right/enter" "open a file, or enter a folder"
   sec "SETTINGS  (,)"
   row "enter" "toggle the focused row (confirmations, show hidden files)"
   row "left" "close"
