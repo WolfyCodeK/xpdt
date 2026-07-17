@@ -118,10 +118,11 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 - `git-authors.sh` branches: a leaf directory (no subdirectories) uses one recursive `git log --name-only -- .`; a directory with subdirectories batches only its immediate files (`git ls-tree` + `git log` over those paths) so it never walks the whole repository subtree. This is the fix for the top of the repo taking a couple of seconds to open.
 - That batch is bounded to the most recent `-n 500` commits. `git log --name-only` has no way to stop once it has seen each file, so without a bound it walks the repo's entire history every time you enter a directory - the main lag on a deep repo. A file's last author is almost always within that window; older files simply show no author.
 - Anything not covered by the batch (an untracked file, or a file whose last commit is older than the window) is left blank - not resolved with a per-file `git log`. That per-file fallback used to spawn a `git` process for every such entry while the table rendered, which was a large part of the first-open lag for a directory full of new/untracked files.
+- A gitignored path shows `ignored` in bold red instead of an author. `git_status` runs `git status --porcelain --ignored` (git collapses an ignored directory to a single `dir/` entry, so this stays cheap), and those `!!` rows are kept out of the changes box and the M column - they only feed the author column's ignored flag (`path_ignored`).
 
 ### Git modified column and status
 
-`custom.git_modified` shows a coloured dot when a path is dirty. It reads `git_status`, which caches `git status --porcelain` per repo root. The changes box (`render_git_changes`) and the browser reuse the same porcelain parse.
+`custom.git_modified` shows a coloured dot when a path is dirty. It reads `git_status`, which caches `git status --porcelain --ignored` per repo root. The changes box (`render_git_changes`) and the browser reuse the same porcelain parse.
 
 Git state (status and the history graph) is **repo-wide**, so it is cached across directory navigation rather than recomputed every time you move. Earlier, `on_directory_change` cleared the status cache, so entering any directory re-ran `git status` over the whole worktree - the main lag when exploring a big repo. Now:
 
