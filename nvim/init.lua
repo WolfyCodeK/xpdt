@@ -385,17 +385,26 @@ vim.api.nvim_create_autocmd("LspAttach", {
     local map = function(m, l, r, d)
       vim.keymap.set(m, l, r, vim.tbl_extend("force", base, { desc = d }))
     end
-    map("n", "K", vim.lsp.buf.hover, "Hover docs")
-    map("n", "gd", vim.lsp.buf.definition, "Go to definition")
-    map("n", "gD", vim.lsp.buf.declaration, "Go to declaration")
-    map("n", "gr", vim.lsp.buf.references, "References")
-    map("n", "gi", vim.lsp.buf.implementation, "Implementations")
-    map("n", "<leader>rn", vim.lsp.buf.rename, "Rename symbol")
-    map({ "n", "x" }, "<leader>ca", vim.lsp.buf.code_action, "Code action")
+    -- Only bind an LSP-backed key when a client on this buffer supports the method, so
+    -- pressing e.g. `gi` on a server without implementation support does its built-in
+    -- Vim thing instead of warning "method ... is not supported". A different client
+    -- that does support it binds the key when it attaches.
+    local mapm = function(method, m, l, r, d)
+      if client and client:supports_method(method) then
+        map(m, l, r, d)
+      end
+    end
+    mapm("textDocument/hover", "n", "K", vim.lsp.buf.hover, "Hover docs")
+    mapm("textDocument/definition", "n", "gd", vim.lsp.buf.definition, "Go to definition")
+    mapm("textDocument/declaration", "n", "gD", vim.lsp.buf.declaration, "Go to declaration")
+    mapm("textDocument/references", "n", "gr", vim.lsp.buf.references, "References")
+    mapm("textDocument/implementation", "n", "gi", vim.lsp.buf.implementation, "Implementations")
+    mapm("textDocument/rename", "n", "<leader>rn", vim.lsp.buf.rename, "Rename symbol")
+    mapm("textDocument/codeAction", { "n", "x" }, "<leader>ca", vim.lsp.buf.code_action, "Code action")
+    mapm("textDocument/formatting", "n", "<leader>f", function() vim.lsp.buf.format({ async = true }) end, "Format buffer")
     map("n", "<leader>e", vim.diagnostic.open_float, "Line diagnostics")
     map("n", "[d", function() vim.diagnostic.jump({ count = -1, float = true }) end, "Prev diagnostic")
     map("n", "]d", function() vim.diagnostic.jump({ count = 1, float = true }) end, "Next diagnostic")
-    map("n", "<leader>f", function() vim.lsp.buf.format({ async = true }) end, "Format buffer")
     map("i", "<C-Space>", function() vim.lsp.completion.get() end, "Trigger completion")
   end,
 })
