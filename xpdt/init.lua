@@ -69,7 +69,16 @@ xplr.config.modes.builtin.default.key_bindings.on_key["f"] = {
 }
 
 xplr.config.modes.builtin.default.key_bindings.on_key["m"] = {
-  help = "move/rename (2 digit code)",
+  help = "rename (2 digit code)",
+  messages = {
+    { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" rename" },
+    { CallLuaSilently = "custom.invalidate_git" },
+    "ExplorePwdAsync",
+  }
+}
+
+xplr.config.modes.builtin.default.key_bindings.on_key["M"] = {
+  help = "move to a folder (2 digit code)",
   messages = {
     { BashExec = "sh \"$HOME/.config/xpdt/file-op.sh\" move" },
     { CallLuaSilently = "custom.invalidate_git" },
