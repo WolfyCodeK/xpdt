@@ -301,6 +301,27 @@ end, { desc = "Side-by-side diff of the current file vs its git index (unstaged 
 -- keys; `lsp` is the lspconfig server name, `cmd`/`filetypes` are kept only for the
 -- PATH check and the re-attach-on-install nicety (the live config comes from lspconfig).
 -- ===========================================================================
+-- djlsp (Django templates) collects your project's tags / filters / {% url %} names /
+-- context by importing the Django project, which needs the project's virtualenv. But it
+-- only looks for a venv in env/.env/venv/.venv under the project root and IGNORES an
+-- active venv - so a venv that is activated, or lives elsewhere, or is named anything
+-- else, is missed, and you get "Failed to collect project-specific Django data" (generic
+-- completions only). Point djlsp at the active venv first ($VIRTUAL_ENV, which venv /
+-- poetry / pipenv / conda all export on activation), then the usual in-project dirs.
+-- env_directories entries may be absolute paths or names resolved against the project
+-- root; djlsp uses the first that has bin/python. Computed once at startup from Neovim's
+-- environment, so launch xpdt/Neovim from an activated venv (or keep it in .venv/venv/
+-- env/.env at the project root) and project-aware Django completions light up.
+local function django_env_directories()
+  local dirs = {}
+  local venv = vim.env.VIRTUAL_ENV
+  if venv and venv ~= "" then
+    dirs[#dirs + 1] = venv
+  end
+  vim.list_extend(dirs, { ".venv", "venv", "env", ".env" })
+  return dirs
+end
+
 local SERVERS = {
   lua = {
     label = "Lua",
@@ -327,6 +348,9 @@ local SERVERS = {
     cmd = { "djlsp" },
     filetypes = { "html", "htmldjango" },
     root_markers = { "manage.py", "pyproject.toml", ".git" },
+    -- Auto-detect the project's virtualenv so djlsp can collect project-specific data
+    -- (see django_env_directories above).
+    init_options = { env_directories = django_env_directories() },
     install = "pipx install django-template-lsp  (or: pip install --user django-template-lsp)",
   },
   typescript = {
@@ -546,8 +570,15 @@ vim.api.nvim_create_autocmd("LspAttach", {
 -- reads lspconfig's lsp/<name>.lua from the runtimepath.
 local function enable_server(name)
   local spec = SERVERS[name]
+  local cfg = {}
   if spec.settings then
-    vim.lsp.config(spec.lsp, { settings = spec.settings })
+    cfg.settings = spec.settings
+  end
+  if spec.init_options then
+    cfg.init_options = spec.init_options
+  end
+  if next(cfg) then
+    vim.lsp.config(spec.lsp, cfg)
   end
   vim.lsp.enable(spec.lsp)
 end
