@@ -7,8 +7,10 @@ ROOT="$(sh "$HOME/.config/xpdt/repo-root.sh" "$DIR")"
 X="$HOME/.config/xpdt"
 LIST="sh $X/git-changes-list.sh '$ROOT'"
 
+# Open the browser even with no changes (you can sit here and press r to refresh
+# as changes land, or left to go back). Being in a git repo is still required - the
+# ROOT guard above handles that. An empty list shows a hint in the preview.
 ENTRIES=$(eval "$LIST")
-[ -z "$ENTRIES" ] && exit 0
 NENTRIES=$(printf '%s\n' "$ENTRIES" | grep -c .)
 
 TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
@@ -32,17 +34,21 @@ DIFF="{ if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=never -- 
 # Re-run on every (re)load so the list keeps matching the current change count.
 RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
 
-printf '%s\n' "$ENTRIES" \
+# Feed fzf the entries, or truly empty input when there are none (printf '%s\n' ""
+# would emit one blank line, i.e. a phantom row). Every action is guarded on a
+# non-empty focus so the keys are harmless no-ops on an empty list; r (refresh) is
+# not guarded, so it always works.
+{ [ -n "$ENTRIES" ] && printf '%s\n' "$ENTRIES"; } \
   | fzf --ansi --no-sort --reverse --disabled --no-input \
       --header="$HDR" \
       --preview "$DIFF" \
       --preview-window "down,$PW,wrap" \
       --bind "load:transform:$RESIZE" \
-      --bind "s:execute(sh $X/git-stage.sh '$ROOT' {1} {3..})+reload($LIST)" \
-      --bind "d:execute(sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \
-      --bind "c:execute(bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
-      --bind "p:execute(sh $X/git-hunk-browser.sh '$ROOT' {1} {3..})+reload($LIST)" \
+      --bind "s:execute([ -n {1} ] && sh $X/git-stage.sh '$ROOT' {1} {3..})+reload($LIST)" \
+      --bind "d:execute([ -n {1} ] && sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \
+      --bind "c:execute([ -n {1} ] && bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
+      --bind "p:execute([ -n {1} ] && sh $X/git-hunk-browser.sh '$ROOT' {1} {3..})+reload($LIST)" \
       --bind "r:reload($LIST)" \
-      --bind "right:execute(if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh)+reload($LIST)" \
-      --bind "ctrl-e:execute(cd '$ROOT' && nvim {3..}; sh $X/flush-input.sh)+reload($LIST)" \
+      --bind "right:execute([ -n {1} ] && { if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh; })+reload($LIST)" \
+      --bind "ctrl-e:execute([ -n {1} ] && { cd '$ROOT' && nvim {3..}; sh $X/flush-input.sh; })+reload($LIST)" \
       --bind 'enter:ignore,left:abort' >/dev/null 2>&1 || true
