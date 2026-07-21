@@ -236,11 +236,12 @@ Scope: `scope.sh` reads / toggles `.search-scope` (`here` = current directory, `
 
 ### Neovim settings
 
-The `,` menu's **NEOVIM** section has three toggles, all off by default:
+The `,` menu's **NEOVIM** section has four toggles, all off by default:
 
 - **Preview file before opening in Neovim** - `→` on a file shows the full-screen preview first (below) instead of opening Neovim straight away; from the preview, `→` / `ctrl-e` opens Neovim at the line. `open-or-preview.sh` reads the setting live (per keypress) and dispatches to `preview-file.sh` or `open-file.sh`, so the main view and both searches behave the same.
 - **Left at the start of a line exits Neovim** - in Neovim (opened from xpdt), with no unsaved edits in any buffer, `←` at column 1 quits back to xpdt, so `left` keeps meaning "back" once the cursor can go no further left. It never fires when a buffer is modified, and rebinds only the arrow, not `h`. Read from `.gate-config` when Neovim starts. When you _hold_ `←` to trigger it, xpdt stays put and drains the key's auto-repeat until you release it (`flush-input.sh`), then resumes - so holding no longer walks you back up through directories once the editor closes (it reappears when you let go). A one-shot flush would miss this, because auto-repeat only starts after an initial delay - i.e. after Neovim has already closed.
 - **Key-hint bar at the top of the window** - when on, Neovim shows a one-line help bar (its `winbar`) across the top of the window with the keybinds you are likely to forget (`spc Y` copy file, the LSP keys, `gc` comment, leap/surround, `:w`/`:q`, ... and `ctrl-h` for the full cheat sheet). winbar is a single line and cannot wrap, so the hints are width-packed - the bar shows as many as fit the window, most-useful first - and it advertises `←` back only when the left-exits setting is also on. Keys are bright, labels dim, both linked to the active colour theme. Read from `.gate-config` when Neovim starts, so it applies to the next file you open.
+- **Edit unstaged changes as a side-by-side diff** - in the changes browser, `→` on an **unstaged** entry normally opens the file in Neovim to edit. With this on, it instead opens Neovim's own side-by-side diff (`:XpdtDiff`) of the working file against its git index: the left window is the read-only index version, the right is the real editable working file, both in diff mode, so the green/red diff updates live as you edit (`]c` / `[c` jump between changes, `do` / `dp` obtain / put one). Staged entries are unchanged (still the read-only inline diff viewer). The changes browser reads the setting when it opens; `:XpdtDiff` also works by hand in any tracked file.
 
 ### File preview
 
