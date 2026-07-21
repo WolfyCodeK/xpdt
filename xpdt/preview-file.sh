@@ -40,13 +40,14 @@ WATCHER=$!
 printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 fzf --ansi --no-sort --exact --reverse --wrap --listen --prompt="$BASE > " \
     $POSBIND \
-    --header="$(sh "$HOME/.config/xpdt/wrap-header.sh" 'type to search    [ctrl-v] select    [ctrl-y] copy    [ctrl-e] edit    [enter] menu    [←] back')" \
+    --header="$(sh "$HOME/.config/xpdt/wrap-header.sh" 'type to search    [ctrl-v] select    [ctrl-y] copy    [→/ctrl-e] edit    [←] back')" \
     --bind "start:execute-silent(echo \$FZF_PORT > '$PORTF')" \
     --bind "result:transform:sh '$HOME/.config/xpdt/preview-track.sh' '$LASTPOSF' '$QLENF' {n} {q}" \
     --bind 'left:abort' \
+    --bind 'enter:ignore' \
     --bind "ctrl-v:execute-silent(echo {n} > '$MARKF')+change-prompt(select: move to end line, ctrl-y > )" \
+    --bind "right:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} '$F')+reload($RELOAD)" \
     --bind "ctrl-e:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} '$F')+reload($RELOAD)" \
-    --bind "enter:execute(XPLR_FOCUS_PATH='$F' sh \"$HOME/.config/xpdt/open-menu.sh\")" \
     --bind "ctrl-y:execute-silent[sh '$HOME/.config/xpdt/copy-preview.sh' '$F' '$MAPF' '$MARKF' {n}; ( sleep 2; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d 'change-prompt($BASE > )' ) & ]+change-prompt(copied to clipboard > )" \
     < "$TMP" || true
 kill "$WATCHER" 2>/dev/null

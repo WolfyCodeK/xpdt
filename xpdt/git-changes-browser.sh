@@ -7,35 +7,42 @@ ROOT="$(sh "$HOME/.config/xpdt/repo-root.sh" "$DIR")"
 X="$HOME/.config/xpdt"
 LIST="sh $X/git-changes-list.sh '$ROOT'"
 
-while : ; do
-  ENTRIES=$(eval "$LIST")
-  [ -z "$ENTRIES" ] && exit 0
-  NENTRIES=$(printf '%s\n' "$ENTRIES" | grep -c .)
-  TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
-  [ -z "$TERMH" ] && TERMH=$(tput lines 2>/dev/null)
-  [ -z "$TERMH" ] && TERMH=40
-  MAXFILES=20
-  LISTH=$((NENTRIES + 3)); MAXLIST=$((TERMH - 10))
-  [ "$LISTH" -gt $((MAXFILES + 3)) ] && LISTH=$((MAXFILES + 3))
-  [ "$LISTH" -gt "$MAXLIST" ] && LISTH="$MAXLIST"
-  [ "$LISTH" -lt 4 ] && LISTH=4
-  DIFF="{ if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=never -- {3..}; else git -C '$ROOT' diff --color=never -- {3..}; fi; } | python3 '$X/diff-words.py'"
-  RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXFILES + 3)) ] && lh=$((MAXFILES + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)),wrap)\""
-  LINE=$(printf '%s\n' "$ENTRIES" \
-    | fzf --ansi --no-sort --reverse --disabled --no-input \
-        --header="$(sh $X/wrap-header.sh '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [→] edit (unstaged) / diff (staged)  [ctrl-e] edit  [enter] vscode')" \
-        --preview "$DIFF" \
-        --preview-window "down,$((TERMH - LISTH)),wrap" \
-        --bind "load:transform:$RESIZE" \
-        --bind "s:execute(sh $X/git-stage.sh '$ROOT' {1} {3..})+reload($LIST)" \
-        --bind "d:execute(sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \
-        --bind "c:execute(bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
-        --bind "p:execute(sh $X/git-hunk-browser.sh '$ROOT' {1} {3..})+reload($LIST)" \
-        --bind "right:execute(if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh)+reload($LIST)" \
-        --bind "ctrl-e:execute(cd '$ROOT' && nvim {3..}; sh $X/flush-input.sh)+reload($LIST)" \
-        --bind 'enter:accept,left:abort')
-  [ -z "$LINE" ] && exit 0
-  GROUP=$(printf '%s\n' "$LINE" | awk '{print $1}')
-  FILE=$(printf '%s\n' "$LINE" | awk '{$1=""; $2=""; sub(/^ +/,""); print}')
-  sh "$X/open-git-diff.sh" "$ROOT" "$GROUP" "$FILE"
-done
+ENTRIES=$(eval "$LIST")
+[ -z "$ENTRIES" ] && exit 0
+NENTRIES=$(printf '%s\n' "$ENTRIES" | grep -c .)
+
+TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
+[ -z "$TERMH" ] && TERMH=$(tput lines 2>/dev/null)
+[ -z "$TERMH" ] && TERMH=40
+MAXFILES=20
+
+HDR="$(sh $X/wrap-header.sh '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [r] refresh  [→] edit (unstaged) / diff (staged)  [ctrl-e] edit')"
+# Rows the list must yield to chrome: the (possibly wrapped) header lines plus the
+# preview window's top and bottom border. Sizing the list to the item count means
+# giving the preview whatever is left: preview = TERMH - items - OVER. Getting OVER
+# wrong is what used to collapse the list to a couple of rows on a narrow terminal
+# (the header wraps to several lines there, but the old code budgeted a flat +3).
+OVER=$(( $(printf '%s\n' "$HDR" | wc -l) + 2 ))
+
+# preview size for a given item count (clamped so the preview never fully vanishes)
+pv() { n=$1; [ "$n" -gt "$MAXFILES" ] && n=$MAXFILES; p=$((TERMH - n - OVER)); [ "$p" -lt 3 ] && p=3; echo "$p"; }
+PW=$(pv "$NENTRIES")
+
+DIFF="{ if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=never -- {3..}; else git -C '$ROOT' diff --color=never -- {3..}; fi; } | python3 '$X/diff-words.py'"
+# Re-run on every (re)load so the list keeps matching the current change count.
+RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
+
+printf '%s\n' "$ENTRIES" \
+  | fzf --ansi --no-sort --reverse --disabled --no-input \
+      --header="$HDR" \
+      --preview "$DIFF" \
+      --preview-window "down,$PW,wrap" \
+      --bind "load:transform:$RESIZE" \
+      --bind "s:execute(sh $X/git-stage.sh '$ROOT' {1} {3..})+reload($LIST)" \
+      --bind "d:execute(sh $X/git-discard.sh '$ROOT' {1} {2} {3..})+reload($LIST)" \
+      --bind "c:execute(bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
+      --bind "p:execute(sh $X/git-hunk-browser.sh '$ROOT' {1} {3..})+reload($LIST)" \
+      --bind "r:reload($LIST)" \
+      --bind "right:execute(if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh)+reload($LIST)" \
+      --bind "ctrl-e:execute(cd '$ROOT' && nvim {3..}; sh $X/flush-input.sh)+reload($LIST)" \
+      --bind 'enter:ignore,left:abort' >/dev/null 2>&1 || true

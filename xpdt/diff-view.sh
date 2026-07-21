@@ -43,5 +43,5 @@ printf '%s\n' "$RENDERED" | fzf --ansi --no-sort --disabled --reverse --prompt="
   --bind "right:transform:sh $X/diff-nav.sh next {n} '$CHGPOSF'" \
   --bind "shift-right:transform:sh $X/diff-nav.sh prev {n} '$CHGPOSF'" \
   --bind 'left:abort' \
-  --bind 'q:ignore' || true
+  --bind 'q:ignore,enter:ignore' || true
 rm -rf "$TMPD" "$CHGPOSF"

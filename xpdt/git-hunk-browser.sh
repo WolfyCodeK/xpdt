@@ -32,4 +32,4 @@ eval "$LIST" | fzf --ansi --no-sort --reverse --disabled --no-input \
   --preview-window 'down,72%,wrap' \
   --bind "s:execute(sh $X/git-hunk.sh apply '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
   --bind "d:execute(sh $X/git-hunk.sh discard '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
-  --bind 'left:abort,esc:abort,q:abort' || true
+  --bind 'left:abort,esc:abort,q:abort,enter:ignore' || true
