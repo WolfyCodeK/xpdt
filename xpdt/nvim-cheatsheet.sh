@@ -74,5 +74,6 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "Space e"    "this line's error in a popup (also wraps under the line)   ]d / [d  next / prev"
   row "Space f"    "format the buffer"
   row ":XpdtLsp"   "which languages are on, and how to install each server"
-  printf "\n  ${D}%s${Z}\n" "(press q or ctrl-h to close)"
+  printf "\n  ${D}%s${Z}\n" "tip: xpdt's , settings can pin a key-hint bar to the top of the Neovim window"
+  printf "  ${D}%s${Z}\n" "(press q or ctrl-h to close)"
 } | sh "$HOME/.config/xpdt/popup.sh" "neovim cheat sheet"
