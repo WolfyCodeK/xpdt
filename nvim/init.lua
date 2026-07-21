@@ -381,9 +381,49 @@ end
 -- full message, on as many rows as it needs), only for the line the cursor is on so
 -- it stays uncluttered. The gutter signs still mark every diagnostic line at a glance,
 -- and `<leader>e` opens the full text in a bordered float (which also wraps).
+--
+-- Neovim's built-in virtual_lines does NOT soft-wrap a long single-line message - it
+-- puts it on one virtual line that runs off the right edge. So we pre-wrap the message
+-- ourselves in `format`: word-wrap it to the width actually left for the text, which is
+-- the window width minus the gutter (`textoff`), minus the column the message is
+-- indented under (virtual_lines aligns it below the diagnostic's column), minus the
+-- ~6-char connector and a little slack. Existing newlines in the message are kept.
+local function wrap_diagnostic(msg, width)
+  if width < 20 then
+    width = 20
+  end
+  local out = {}
+  for _, para in ipairs(vim.split(tostring(msg), "\n", { plain = true })) do
+    local line = ""
+    for word in para:gmatch("%S+") do
+      if line == "" then
+        line = word
+      elseif #line + 1 + #word <= width then
+        line = line .. " " .. word
+      else
+        out[#out + 1] = line
+        line = word
+      end
+    end
+    out[#out + 1] = line
+  end
+  return table.concat(out, "\n")
+end
+
+local function diag_virt_lines_format(d)
+  local width = 80
+  local ok, info = pcall(function()
+    return vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
+  end)
+  if ok and info then
+    width = info.width - (info.textoff or 0) - (d.col or 0) - 8
+  end
+  return wrap_diagnostic(d.message, width)
+end
+
 vim.diagnostic.config({
   virtual_text = false,
-  virtual_lines = { current_line = true },
+  virtual_lines = { current_line = true, format = diag_virt_lines_format },
   underline = true,
   severity_sort = true,
   float = { border = "rounded", source = true, wrap = true, max_width = 100 },
