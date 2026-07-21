@@ -249,6 +249,45 @@ if xpdt_setting_on("nvim-help-bar") then
   vim.o.winbar = "%{%v:lua.xpdt_help_bar()%}"
 end
 
+-- :XpdtDiff - open the current file in Neovim's own side-by-side diff against its git
+-- index version (its unstaged changes): the left window is the read-only index content
+-- and the right is the real, editable working file, both in diff mode, so the green/red
+-- diff updates live as you edit. xpdt's changes browser runs this (instead of a plain
+-- edit) on an unstaged entry when the "edit unstaged changes as a diff" setting is on;
+-- you can also run :XpdtDiff by hand. In the diff, ]c / [c jump between changes and
+-- do / dp obtain / put a change.
+vim.api.nvim_create_user_command("XpdtDiff", function()
+  local file = vim.api.nvim_buf_get_name(0)
+  if file == "" then
+    return
+  end
+  local dir = vim.fn.fnamemodify(file, ":h")
+  local root = vim.fn.systemlist({ "git", "-C", dir, "rev-parse", "--show-toplevel" })[1]
+  if vim.v.shell_error ~= 0 or not root or root == "" then
+    vim.notify("XpdtDiff: not in a git repository", vim.log.levels.WARN)
+    return
+  end
+  local rel = vim.fn.systemlist({ "git", "-C", root, "ls-files", "--full-name", "--", file })[1]
+  if not rel or rel == "" then
+    rel = file:sub(#root + 2)
+  end
+  local index = vim.fn.systemlist({ "git", "-C", root, "show", ":" .. rel })
+  if vim.v.shell_error ~= 0 then
+    vim.notify("XpdtDiff: no index version (file is untracked?)", vim.log.levels.WARN)
+    return
+  end
+  local ft = vim.bo.filetype
+  vim.cmd("diffthis")
+  vim.cmd("leftabove vnew")
+  vim.bo.buftype, vim.bo.bufhidden, vim.bo.swapfile = "nofile", "wipe", false
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, index)
+  vim.bo.filetype = ft
+  vim.bo.modifiable = false
+  pcall(vim.api.nvim_buf_set_name, 0, rel .. " (index)")
+  vim.cmd("diffthis")
+  vim.cmd("wincmd p")
+end, { desc = "Side-by-side diff of the current file vs its git index (unstaged changes)" })
+
 -- ===========================================================================
 -- Intellisense (LSP), opt-in per language via xpdt's `,` settings menu.
 --

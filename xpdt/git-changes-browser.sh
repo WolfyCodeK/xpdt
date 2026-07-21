@@ -30,6 +30,13 @@ OVER=$(( $(printf '%s\n' "$HDR" | wc -l) + 2 ))
 pv() { n=$1; [ "$n" -gt "$MAXFILES" ] && n=$MAXFILES; p=$((TERMH - n - OVER)); [ "$p" -lt 3 ] && p=3; echo "$p"; }
 PW=$(pv "$NENTRIES")
 
+# `right` on an unstaged entry opens the working file in Neovim to edit. With the
+# "nvim-diff-unstaged" setting on it opens as an editable side-by-side diff against the
+# index instead (:XpdtDiff, defined in nvim/init.lua), so you review the green/red diff
+# and edit in place. Read once here; a toggle applies the next time you open the browser.
+UNSTAGED_OPEN="cd '$ROOT' && nvim {3..}"
+[ "$(sh $X/gate.sh get nvim-diff-unstaged)" = 1 ] && UNSTAGED_OPEN="cd '$ROOT' && nvim -c XpdtDiff {3..}"
+
 DIFF="{ if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=never -- {3..}; else git -C '$ROOT' diff --color=never -- {3..}; fi; } | python3 -S '$X/diff-words.py'"
 # Re-run on every (re)load so the list keeps matching the current change count.
 RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
@@ -49,5 +56,5 @@ RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH 
       --bind "c:execute([ -n {1} ] && bash $X/git-commit.sh '$ROOT')+reload($LIST)" \
       --bind "p:execute([ -n {1} ] && sh $X/git-hunk-browser.sh '$ROOT' {1} {3..})+reload($LIST)" \
       --bind "r:reload($LIST)" \
-      --bind "right:execute([ -n {1} ] && { if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh; })+reload($LIST)" \
+      --bind "right:execute([ -n {1} ] && { if [ {1} = unstaged ]; then $UNSTAGED_OPEN; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh; })+reload($LIST)" \
       --bind 'enter:ignore,left:abort' >/dev/null 2>&1 || true
