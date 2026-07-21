@@ -14,7 +14,7 @@ get two commands:
 
 - **`xpdt/`** goes in `~/.config/xpdt`. The customised xplr config: git changes,
   log and stash browsers, an inline diff viewer with change-to-change navigation,
-  file create/delete/move, a git command menu, an optional full-screen file preview,
+  file create / rename / delete / move, a git command menu, an optional full-screen file preview,
   a toggleable two-digit confirmation gate on every mutating action, selectable colour themes, and full Nerd Font theming.
   Detailed docs are in [`xpdt/README.md`](xpdt/README.md).
 - **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter on its
