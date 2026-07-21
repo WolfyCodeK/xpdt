@@ -138,11 +138,16 @@ case "${1:-}" in
     # tty back to a sane cooked mode so the prompt reads normally; fzf re-applies
     # its own mode when the bind returns.
     stty sane < /dev/tty 2>/dev/null
-    # A 2-digit confirm code. /dev/urandom (via od) rather than python - no 16ms
-    # python spawn on the confirm path - and genuinely unpredictable; awk srand is a
-    # fallback so the code is never empty (an empty code would weaken the gate).
-    c=$(od -An -N2 -tu2 /dev/urandom 2>/dev/null | awk '{print 10 + $1 % 90}')
-    [ -z "$c" ] && c=$(awk 'BEGIN { srand(); print int(10 + rand() * 90) }')
+    # A 2-digit confirm code, generated with awk (a single BEGIN print) rather than
+    # python - no ~16ms python spawn on the confirm path. srand() seeds from the clock,
+    # which is plenty for a gate whose job is to stop an accidental keypress or a pasted
+    # burst, not to be a secret. (An earlier /dev/urandom + od version emitted a second
+    # line under macOS's BSD od, so the "code" became two numbers that could never be
+    # typed and the gate always cancelled - hence awk only, which is single-line on
+    # every awk.)
+    c=$(awk 'BEGIN { srand(); print int(10 + rand() * 90) }')
+    # Fail closed if that somehow did not produce exactly two digits (never confirm blind).
+    case "$c" in [1-9][0-9]) ;; *) printf 'Cancelled.\n' > /dev/tty; exit 1 ;; esac
     { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
     python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
     IFS= read -r a < /dev/tty || { printf '\n' > /dev/tty; exit 1; }
