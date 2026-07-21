@@ -159,11 +159,12 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
           --bind "change:reload:sleep 0.1; $GEN" \
           --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { touch /tmp/xpdt-left-exit; echo abort; }' \
           --bind 'right:accept' \
-          --bind 'enter:accept')
+          --bind 'enter:ignore')
         if [ -n "$FILE" ]; then
           FULL=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "$FILE")
-          # right / enter both confirm the focused hit: a folder is entered (like the
-          # main view), a file opens in Neovim (or the preview first, per the setting).
+          # `right` (only - never enter) confirms the focused hit: a folder is entered
+          # (like the main view), a file opens in Neovim (or the preview first, per the
+          # setting).
           # ChangeDirectory fires on_directory_change -> apply_xplrignore, so filters
           # are reset/reapplied for the new directory just like normal navigation.
           if [ -d "$FULL" ]; then
@@ -189,22 +190,19 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
         SF="$X/.search-scope"; [ -f "$SF" ] || echo here > "$SF"
         HERE="$(pwd)"; ROOT="${XPLR_INITIAL_PWD:-$HERE}"
         GENQ="sh $X/search.sh content '$SF' '$HERE' '$ROOT'"
-        RESULT=$(
-          : | fzf --ansi --disabled --no-sort \
-            --header="$(sh $X/scope.sh header "$SF")" \
-            --bind "change:reload:sleep 0.1; $GENQ {q}" \
-            --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
-            --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { touch /tmp/xpdt-left-exit; echo abort; }' \
-            --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/open-or-preview.sh)" \
-            --bind 'enter:accept' \
-            --delimiter : \
-            --preview "F=\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \
-            --preview-window 'up,60%,+{2}-5'
-        )
-        if [ -n "$RESULT" ]; then
-          FILE=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "${RESULT%%:*}")
-          XPLR_FOCUS_PATH="$FILE" sh "$X/open-menu.sh"
-        fi
+        # `right` opens the focused hit in Neovim at the matched line; `enter` does
+        # nothing (opening a file is right-only, across the whole app). `left` walks
+        # back through the query and exits the search once it is empty.
+        : | fzf --ansi --disabled --no-sort \
+          --header="$(sh $X/scope.sh header "$SF")" \
+          --bind "change:reload:sleep 0.1; $GENQ {q}" \
+          --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
+          --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { touch /tmp/xpdt-left-exit; echo abort; }' \
+          --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/open-or-preview.sh)" \
+          --bind 'enter:ignore' \
+          --delimiter : \
+          --preview "F=\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \
+          --preview-window 'up,60%,+{2}-5' >/dev/null 2>&1 || true
         # Drain keystrokes buffered while fzf was open so they do not leak into xpdt
         # afterwards and fire key bindings.
         sh "$X/flush-input.sh"

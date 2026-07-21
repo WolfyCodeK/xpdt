@@ -16,27 +16,30 @@ TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
 [ -z "$TERMH" ] && TERMH=$(tput lines 2>/dev/null)
 [ -z "$TERMH" ] && TERMH=40
 MAXLIST=15
-LISTH=$((NENTRIES + 3)); MAXH=$((TERMH - 10))
-[ "$LISTH" -gt $((MAXLIST + 3)) ] && LISTH=$((MAXLIST + 3))
-[ "$LISTH" -gt "$MAXH" ] && LISTH="$MAXH"
-[ "$LISTH" -lt 4 ] && LISTH=4
+
 # {1} is the stash ref; empty when there are no stashes, so guard every action
 # and show a hint in the preview instead of a git error.
+HDR="$(sh $X/wrap-header.sh '[a] apply  [p] pop  [d] drop  [n] new  [x] clear all  [→] view  [←] back')"
+# The list yields the (possibly wrapped) header lines plus the preview's top/bottom
+# border to chrome; the preview gets the rest (see git-changes-browser.sh for why).
+OVER=$(( $(printf '%s\n' "$HDR" | wc -l) + 2 ))
+pv() { n=$1; [ "$n" -gt "$MAXLIST" ] && n=$MAXLIST; [ "$n" -lt 1 ] && n=1; p=$((TERMH - n - OVER)); [ "$p" -lt 3 ] && p=3; echo "$p"; }
+PW=$(pv "$NENTRIES")
+
 VIEW="git -C '$ROOT' stash show -p --color=never {1} | python3 '$X/diff-words.py'"
 PREVIEW="[ -n {1} ] && $VIEW || echo 'No stashes. Press n to stash your current changes.'"
-RESIZE="lh=\$((FZF_TOTAL_COUNT + 3)); [ \$lh -gt $((MAXLIST + 3)) ] && lh=$((MAXLIST + 3)); [ \$lh -gt $((TERMH - 10)) ] && lh=$((TERMH - 10)); [ \$lh -lt 4 ] && lh=4; echo \"change-preview-window(down,\$(($TERMH - lh)),wrap)\""
+RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXLIST ] && n=$MAXLIST; [ \$n -lt 1 ] && n=1; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
 
 eval "$LIST" \
   | fzf --ansi --no-sort --reverse --disabled --no-input \
-      --header="$(sh $X/wrap-header.sh '[a] apply  [p] pop  [d] drop  [n] new  [x] clear all  [enter/→] view  [←] back')" \
+      --header="$HDR" \
       --preview "$PREVIEW" \
-      --preview-window "down,$((TERMH - LISTH)),wrap" \
+      --preview-window "down,$PW,wrap" \
       --bind "load:transform:$RESIZE" \
       --bind "a:execute([ -n {1} ] && sh $X/git-stash-op.sh '$ROOT' apply {1})+reload($LIST)" \
       --bind "p:execute([ -n {1} ] && sh $X/git-stash-op.sh '$ROOT' pop {1})+reload($LIST)" \
       --bind "d:execute([ -n {1} ] && sh $X/git-stash-op.sh '$ROOT' drop {1})+reload($LIST)" \
       --bind "n:execute(sh $X/git-stash-op.sh '$ROOT' push)+reload($LIST)" \
       --bind "x:execute(sh $X/git-stash-op.sh '$ROOT' clear)+reload($LIST)" \
-      --bind "enter:execute([ -n {1} ] && $VIEW | less -R)" \
       --bind "right:execute([ -n {1} ] && $VIEW | less -R)" \
-      --bind 'left:abort' || true
+      --bind 'enter:ignore,left:abort' || true
