@@ -36,7 +36,6 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "d" "discard"
   row "c" "commit"
   row "r" "refresh (pick up changes made outside xpdt)"
-  row "ctrl-e" "edit in neovim"
   row "right" "edit (unstaged) / inline diff viewer (staged)"
   row "left" "back"
   sec "HUNK BROWSER  (p in the changes browser)"
