@@ -78,7 +78,7 @@ get() { # get KEY -> 1 (on) or 0 (off), or for `theme` the theme name (default m
     case "$v" in 0) echo 0; return ;; 1) echo 1; return ;; esac
   fi
   case "$1" in
-    claude-integration | lsp-* | preview-before-nvim | nvim-left-exits) echo 0 ;;
+    claude-integration | lsp-* | preview-before-nvim | nvim-left-exits | nvim-help-bar) echo 0 ;;
     *) echo 1 ;;
   esac
 }
@@ -169,9 +169,10 @@ case "${1:-}" in
     printf 'claude-integration %s Claude session list in the git history panel\n' "$(box "$(get claude-integration)")"
 
     gap
-    hdr 'OPENING FILES'
+    hdr 'NEOVIM'
     printf 'preview-before-nvim %s Preview a file first, instead of opening it straight in Neovim\n' "$(box "$(get preview-before-nvim)")"
     printf 'nvim-left-exits %s In Neovim, left at the start of a line (no edits) goes back to xpdt\n' "$(box "$(get nvim-left-exits)")"
+    printf 'nvim-help-bar %s In Neovim, a key-hint bar across the top of the window (applies next launch)\n' "$(box "$(get nvim-help-bar)")"
 
     gap
     hdr 'THEME'

@@ -212,6 +212,43 @@ if xpdt_setting_on("nvim-left-exits") then
   end, { desc = "Left, or exit to xpdt at line start when there are no edits" })
 end
 
+-- Optional (xpdt setting "nvim-help-bar"): a one-line key-hint bar pinned to the top of
+-- the window (Neovim's winbar) so the keybinds you keep forgetting stay on screen while
+-- you edit. winbar is a single line and cannot wrap, so the hints are width-packed - as
+-- many as fit the window, most-useful first - with `ctrl-h` (the full cheat sheet) last.
+-- The keys mirror that cheat sheet. Toggle it in xpdt's `,` settings menu.
+if xpdt_setting_on("nvim-help-bar") then
+  local items = { { "spc Y", "copy file" } }
+  -- `<Left>` only leaves Neovim when the left-exits setting is on, so only advertise it then.
+  if xpdt_setting_on("nvim-left-exits") then
+    items[#items + 1] = { "<-", "back" }
+  end
+  vim.list_extend(items, {
+    { "gd", "def" }, { "gr", "refs" }, { "K", "hover" },
+    { "spc rn", "rename" }, { "spc ca", "action" }, { "spc f", "format" }, { "spc e", "error" },
+    { "]d [d", "diag" }, { "gc", "comment" }, { "s", "leap" }, { "cs ds ys", "surround" },
+    { ":w", "save" }, { ":q", "quit" }, { "u", "undo" }, { "C-r", "redo" }, { "C-h", "all keys" },
+  })
+  -- key = bright, description = dim; links so they follow whichever colour theme is active.
+  vim.api.nvim_set_hl(0, "XpdtHelpKey", { link = "Function" })
+  vim.api.nvim_set_hl(0, "XpdtHelpDesc", { link = "Comment" })
+  _G.xpdt_help_bar = function()
+    local avail = vim.api.nvim_win_get_width(0) - 1
+    local out, used = {}, 0
+    for _, it in ipairs(items) do
+      local disp = #it[1] + 1 + #it[2] -- "<key> <desc>" display width (all ASCII)
+      local cost = (used == 0) and disp or (disp + 2) -- +2 for the "  " gap between items
+      if used + cost > avail then
+        break
+      end
+      out[#out + 1] = (used == 0 and " " or "  ") .. "%#XpdtHelpKey#" .. it[1] .. "%#XpdtHelpDesc# " .. it[2] .. "%*"
+      used = used + cost
+    end
+    return table.concat(out)
+  end
+  vim.o.winbar = "%{%v:lua.xpdt_help_bar()%}"
+end
+
 -- ===========================================================================
 -- Intellisense (LSP), opt-in per language via xpdt's `,` settings menu.
 --
