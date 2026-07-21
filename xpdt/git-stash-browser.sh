@@ -26,7 +26,7 @@ OVER=$(( $(printf '%s\n' "$HDR" | wc -l) + 2 ))
 pv() { n=$1; [ "$n" -gt "$MAXLIST" ] && n=$MAXLIST; [ "$n" -lt 1 ] && n=1; p=$((TERMH - n - OVER)); [ "$p" -lt 3 ] && p=3; echo "$p"; }
 PW=$(pv "$NENTRIES")
 
-VIEW="git -C '$ROOT' stash show -p --color=never {1} | python3 '$X/diff-words.py'"
+VIEW="git -C '$ROOT' stash show -p --color=never {1} | python3 -S '$X/diff-words.py'"
 PREVIEW="[ -n {1} ] && $VIEW || echo 'No stashes. Press n to stash your current changes.'"
 RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXLIST ] && n=$MAXLIST; [ \$n -lt 1 ] && n=1; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
 

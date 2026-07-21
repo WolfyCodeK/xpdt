@@ -20,7 +20,7 @@
 FLAG="/tmp/xpdt-left-exit"
 if [ -f "$FLAG" ]; then
   rm -f "$FLAG"
-  python3 -c '
+  python3 -S -c '
 import termios, tty, os, select, time
 try:
     fd = os.open("/dev/tty", os.O_RDWR)
@@ -50,5 +50,5 @@ finally:
     os.close(fd)
 ' 2>/dev/null || true
 else
-  python3 -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' < /dev/tty 2>/dev/null || true
+  python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' < /dev/tty 2>/dev/null || true
 fi

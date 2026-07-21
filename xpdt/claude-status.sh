@@ -29,7 +29,7 @@ COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=100
 
 find "$PROJ" -type f -name '*.jsonl' -not -path '*/subagents/*' -mmin "-$SHOWN_MIN" 2>/dev/null \
-  | ROOT="$ROOT" COLS="$COLS" python3 -c '
+  | ROOT="$ROOT" COLS="$COLS" python3 -S -c '
 import sys, os, json, time, subprocess
 
 root = os.environ.get("ROOT", "").rstrip("/")

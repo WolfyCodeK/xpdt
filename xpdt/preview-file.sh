@@ -13,12 +13,12 @@ LASTPOSF=$(mktemp); QLENF=$(mktemp)
 # instead of flashing blank for the whole prep. The screen is cleared only once,
 # right before fzf paints (see below).
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$F" \
-  | W=$((COLS - 4)) HL="$XPLR_PREVIEW_LINE" POSFILE="$POSF" MAPFILE="$MAPF" python3 "$HOME/.config/xpdt/wrap-lines.py" > "$TMP"
+  | W=$((COLS - 4)) HL="$XPLR_PREVIEW_LINE" POSFILE="$POSF" MAPFILE="$MAPF" python3 -S "$HOME/.config/xpdt/wrap-lines.py" > "$TMP"
 POSBIND=""
 POS=$(cat "$POSF" 2>/dev/null)
 [ -n "$POS" ] && POSBIND="--bind load:pos($POS)"
 BASE="$(basename "$F")"
-RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- '$F' | W=$((COLS - 4)) MAPFILE='$MAPF' python3 '$HOME/.config/xpdt/wrap-lines.py'"
+RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- '$F' | W=$((COLS - 4)) MAPFILE='$MAPF' python3 -S '$HOME/.config/xpdt/wrap-lines.py'"
 (
   i=0
   while [ ! -s "$PORTF" ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done

@@ -28,7 +28,7 @@ printf '%s\n' "$BEFORE" > "$TMPD/b/$BASE"
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$TMPD/a/$BASE" > "$TMPD/ab" 2>/dev/null
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$TMPD/b/$BASE" > "$TMPD/bb" 2>/dev/null
 CHGPOSF=$(mktemp)
-RENDERED=$(eval "$DIFF0" 2>/dev/null | W=$((COLS - 4)) CHGPOSFILE="$CHGPOSF" python3 "$X/diff-render.py" "$TMPD/ab" "$TMPD/bb")
+RENDERED=$(eval "$DIFF0" 2>/dev/null | W=$((COLS - 4)) CHGPOSFILE="$CHGPOSF" python3 -S "$X/diff-render.py" "$TMPD/ab" "$TMPD/bb")
 FIRST=$(awk '{print $1}' "$CHGPOSF" 2>/dev/null)
 POSBIND=""
 [ -n "$FIRST" ] && POSBIND="--bind load:pos($FIRST)"

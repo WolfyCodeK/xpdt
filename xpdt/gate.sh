@@ -138,9 +138,13 @@ case "${1:-}" in
     # tty back to a sane cooked mode so the prompt reads normally; fzf re-applies
     # its own mode when the bind returns.
     stty sane < /dev/tty 2>/dev/null
-    c=$(python3 -c 'import random; print(random.randint(10, 99))')
+    # A 2-digit confirm code. /dev/urandom (via od) rather than python - no 16ms
+    # python spawn on the confirm path - and genuinely unpredictable; awk srand is a
+    # fallback so the code is never empty (an empty code would weaken the gate).
+    c=$(od -An -N2 -tu2 /dev/urandom 2>/dev/null | awk '{print 10 + $1 % 90}')
+    [ -z "$c" ] && c=$(awk 'BEGIN { srand(); print int(10 + rand() * 90) }')
     { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
-    python3 -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
+    python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
     IFS= read -r a < /dev/tty || { printf '\n' > /dev/tty; exit 1; }
     [ "$a" = "$c" ] && exit 0
     printf 'Cancelled.\n' > /dev/tty; sleep 0.5; exit 1
