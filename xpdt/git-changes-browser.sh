@@ -18,7 +18,7 @@ TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
 [ -z "$TERMH" ] && TERMH=40
 MAXFILES=20
 
-HDR="$(sh $X/wrap-header.sh '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [r] refresh  [→] edit (unstaged) / diff (staged)  [ctrl-e] edit')"
+HDR="$(sh $X/wrap-header.sh '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [r] refresh  [→] edit (unstaged) / diff (staged)')"
 # Rows the list must yield to chrome: the (possibly wrapped) header lines plus the
 # preview window's top and bottom border. Sizing the list to the item count means
 # giving the preview whatever is left: preview = TERMH - items - OVER. Getting OVER
@@ -50,5 +50,4 @@ RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH 
       --bind "p:execute([ -n {1} ] && sh $X/git-hunk-browser.sh '$ROOT' {1} {3..})+reload($LIST)" \
       --bind "r:reload($LIST)" \
       --bind "right:execute([ -n {1} ] && { if [ {1} = unstaged ]; then cd '$ROOT' && nvim {3..}; else sh $X/diff-view.sh '$ROOT' {1} {3..}; fi; sh $X/flush-input.sh; })+reload($LIST)" \
-      --bind "ctrl-e:execute([ -n {1} ] && { cd '$ROOT' && nvim {3..}; sh $X/flush-input.sh; })+reload($LIST)" \
       --bind 'enter:ignore,left:abort' >/dev/null 2>&1 || true
