@@ -21,7 +21,7 @@ case "$OP" in
       exit 0
     fi
     sh "$GATE" confirm stash-new "Stash all working-tree changes (including untracked)?" || exit 0
-    python3 -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
+    python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
     printf 'Stash message (optional, enter to skip): ' > /dev/tty
     read -r msg < /dev/tty || exit 0
     if [ -n "$msg" ]; then

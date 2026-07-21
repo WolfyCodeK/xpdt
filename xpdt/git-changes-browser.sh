@@ -30,7 +30,7 @@ OVER=$(( $(printf '%s\n' "$HDR" | wc -l) + 2 ))
 pv() { n=$1; [ "$n" -gt "$MAXFILES" ] && n=$MAXFILES; p=$((TERMH - n - OVER)); [ "$p" -lt 3 ] && p=3; echo "$p"; }
 PW=$(pv "$NENTRIES")
 
-DIFF="{ if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=never -- {3..}; else git -C '$ROOT' diff --color=never -- {3..}; fi; } | python3 '$X/diff-words.py'"
+DIFF="{ if [ {1} = staged ]; then git -C '$ROOT' diff --cached --color=never -- {3..}; else git -C '$ROOT' diff --color=never -- {3..}; fi; } | python3 -S '$X/diff-words.py'"
 # Re-run on every (re)load so the list keeps matching the current change count.
 RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
 

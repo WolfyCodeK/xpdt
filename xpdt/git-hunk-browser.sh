@@ -28,7 +28,7 @@ fi
 
 eval "$LIST" | fzf --ansi --no-sort --reverse --disabled --no-input \
   --header="$(sh $X/wrap-header.sh "$HDR")" \
-  --preview "sh $X/git-hunk.sh show '$ROOT' $GROUP '$FILE' {1} | python3 $X/diff-words.py" \
+  --preview "sh $X/git-hunk.sh show '$ROOT' $GROUP '$FILE' {1} | python3 -S $X/diff-words.py" \
   --preview-window 'down,72%,wrap' \
   --bind "s:execute(sh $X/git-hunk.sh apply '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
   --bind "d:execute(sh $X/git-hunk.sh discard '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \

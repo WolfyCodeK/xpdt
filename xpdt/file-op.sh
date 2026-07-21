@@ -12,7 +12,7 @@ esac
 
 X="$HOME/.config/xpdt"
 GATE="$X/gate.sh"
-flush() { python3 -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' 2>/dev/null; }
+flush() { python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' 2>/dev/null; }
 
 # Clear leftover output and re-show the cursor (xplr hides it) so a prompt is typed on
 # a clean screen with a visible caret.
@@ -46,7 +46,7 @@ case "$OP" in
     printf 'Renaming: %s\n' "$SRC"
     flush
     TMP=$(mktemp)
-    python3 "$X/prompt-prefill.py" "$SRC" "$TMP" 'New name: ' < /dev/tty > /dev/tty 2>&1
+    python3 -S "$X/prompt-prefill.py" "$SRC" "$TMP" 'New name: ' < /dev/tty > /dev/tty 2>&1
     NEW=$(cat "$TMP" 2>/dev/null); rm -f "$TMP"
     [ -z "$NEW" ] && { printf 'Cancelled.\n'; sleep 0.5; exit 0; }
     [ "$NEW" = "$SRC" ] && { printf 'Unchanged.\n'; sleep 0.5; exit 0; }
