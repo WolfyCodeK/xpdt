@@ -374,12 +374,19 @@ local function enabled_langs()
   return on
 end
 
--- how diagnostics look, and how the built-in completion menu behaves
+-- how diagnostics look, and how the built-in completion menu behaves.
+-- Long messages used to show as inline virtual text at the end of the line, which
+-- cannot wrap - a long type error just ran off the right edge with no way to read
+-- the rest. Show them as wrapped virtual LINES under the current line instead (the
+-- full message, on as many rows as it needs), only for the line the cursor is on so
+-- it stays uncluttered. The gutter signs still mark every diagnostic line at a glance,
+-- and `<leader>e` opens the full text in a bordered float (which also wraps).
 vim.diagnostic.config({
-  virtual_text = { spacing = 2 },
+  virtual_text = false,
+  virtual_lines = { current_line = true },
   underline = true,
   severity_sort = true,
-  float = { border = "rounded", source = true },
+  float = { border = "rounded", source = true, wrap = true, max_width = 100 },
 })
 vim.opt.completeopt = { "menuone", "noselect", "popup", "fuzzy" }
 
