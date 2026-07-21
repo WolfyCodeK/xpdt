@@ -71,7 +71,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "gi"         "go to implementation    gD  go to declaration"
   row "Space rn"   "rename the symbol everywhere"
   row "Space ca"   "code action (quick fixes, imports)"
-  row "Space e"    "show the error on this line    ]d / [d  next / prev"
+  row "Space e"    "this line's error in a popup (also wraps under the line)   ]d / [d  next / prev"
   row "Space f"    "format the buffer"
   row ":XpdtLsp"   "which languages are on, and how to install each server"
   printf "\n  ${D}%s${Z}\n" "(press q or ctrl-h to close)"
