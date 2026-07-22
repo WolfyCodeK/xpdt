@@ -1,4 +1,5 @@
 #!/bin/sh
+export NVIM_NOTTYFAST=1 # skip Neovim's slow startup bg-colour query over SSH (E1568); see open-file.sh
 MAPF="$1"; CUR="$2"; F="$3"
 LINE=$(sed -n "$((CUR + 1))p" "$MAPF" 2>/dev/null)
 case "$LINE" in ''|*[!0-9]*) LINE=1 ;; esac
