@@ -77,6 +77,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   sec "INLINE DIFF  (:XpdtDiff, or right on an unstaged file when that setting is on)"
   row ":XpdtDiff"  "toggle your unstaged changes inline in the file - edit in place, updates live"
   row ""           "+ / ~ signs mark added / changed lines; removed lines show inline in red"
+  row "]c / [c"    "next / previous change (it opens on the first one; shows hunk N/M)"
   printf "\n  ${D}%s${Z}\n" "tip: xpdt's , settings can pin a key-hint bar to the top of the Neovim window"
   printf "  ${D}%s${Z}\n" "(press q or ctrl-h to close)"
 } | sh "$HOME/.config/xpdt/popup.sh" "neovim cheat sheet"

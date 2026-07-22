@@ -262,6 +262,7 @@ end
 local XPDT_DIFF_NS = vim.api.nvim_create_namespace("xpdt_inline_diff")
 local xpdt_diff_index = {} -- bufnr -> the index ("before") lines, while its inline diff is on
 local xpdt_diff_timer = {} -- bufnr -> pending debounce timer
+local xpdt_diff_hunks = {} -- bufnr -> sorted list of hunk anchor lines (1-based), for ]c / [c
 
 local function xpdt_render_inline_diff(buf)
   local index = xpdt_diff_index[buf]
@@ -271,8 +272,12 @@ local function xpdt_render_inline_diff(buf)
   vim.api.nvim_buf_clear_namespace(buf, XPDT_DIFF_NS, 0, -1)
   local before = table.concat(index, "\n") .. "\n"
   local after = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n") .. "\n"
+  local anchors = {} -- the line to jump to for each hunk (in order, ascending)
   for _, h in ipairs(vim.diff(before, after, { result_type = "indices" }) or {}) do
     local sa, ca, sb, cb = h[1], h[2], h[3], h[4]
+    -- where `]c` / `[c` land for this hunk: the first added/changed line, or the line
+    -- the removed block sits under for a pure deletion.
+    anchors[#anchors + 1] = (cb > 0) and sb or math.max(1, sb)
     if cb > 0 then -- added / changed lines in the working buffer
       local hl = (ca > 0) and "DiffChange" or "DiffAdd"
       local sign = (ca > 0) and "~" or "+"
@@ -299,10 +304,50 @@ local function xpdt_render_inline_diff(buf)
       })
     end
   end
+  xpdt_diff_hunks[buf] = anchors
+end
+
+-- Jump to the next (dir=1) or previous (dir=-1) hunk, wrapping, and show "hunk N/M" so
+-- you can see how many there are and where you are. Bound to ]c / [c while the inline
+-- diff is on.
+local function xpdt_diff_jump(buf, dir)
+  local hunks = xpdt_diff_hunks[buf] or {}
+  if #hunks == 0 then
+    vim.api.nvim_echo({ { "XpdtDiff: no changes", "WarningMsg" } }, false, {})
+    return
+  end
+  local cur = vim.api.nvim_win_get_cursor(0)[1]
+  local target, idx
+  if dir > 0 then
+    for i, ln in ipairs(hunks) do
+      if ln > cur then
+        target, idx = ln, i
+        break
+      end
+    end
+    if not target then
+      target, idx = hunks[1], 1 -- wrap to the first
+    end
+  else
+    for i = #hunks, 1, -1 do
+      if hunks[i] < cur then
+        target, idx = hunks[i], i
+        break
+      end
+    end
+    if not target then
+      target, idx = hunks[#hunks], #hunks -- wrap to the last
+    end
+  end
+  target = math.min(target, vim.api.nvim_buf_line_count(buf))
+  vim.api.nvim_win_set_cursor(0, { target, 0 })
+  vim.cmd("normal! zz") -- centre the hunk so you see the surrounding context
+  vim.api.nvim_echo({ { ("hunk %d/%d"):format(idx, #hunks), "Comment" } }, false, {})
 end
 
 local function xpdt_inline_diff_off(buf)
   xpdt_diff_index[buf] = nil
+  xpdt_diff_hunks[buf] = nil
   if xpdt_diff_timer[buf] then
     pcall(function()
       xpdt_diff_timer[buf]:stop()
@@ -311,6 +356,8 @@ local function xpdt_inline_diff_off(buf)
   end
   if vim.api.nvim_buf_is_valid(buf) then
     vim.api.nvim_buf_clear_namespace(buf, XPDT_DIFF_NS, 0, -1)
+    pcall(vim.keymap.del, "n", "]c", { buffer = buf })
+    pcall(vim.keymap.del, "n", "[c", { buffer = buf })
   end
   pcall(vim.api.nvim_del_augroup_by_name, "xpdt_inline_diff_" .. buf)
 end
@@ -343,6 +390,19 @@ vim.api.nvim_create_user_command("XpdtDiff", function()
   xpdt_diff_index[buf] = index
   vim.wo.signcolumn = "yes" -- so the +/~ signs are visible
   xpdt_render_inline_diff(buf)
+  -- Open on the first hunk (the top change), centred, and bind ]c / [c to hop between
+  -- hunks (with a "hunk N/M" readout) so the other changes are easy to reach.
+  local first = (xpdt_diff_hunks[buf] or {})[1]
+  if first then
+    vim.api.nvim_win_set_cursor(0, { math.min(first, vim.api.nvim_buf_line_count(buf)), 0 })
+    vim.cmd("normal! zz")
+  end
+  vim.keymap.set("n", "]c", function()
+    xpdt_diff_jump(buf, 1)
+  end, { buffer = buf, desc = "Next diff hunk (XpdtDiff)" })
+  vim.keymap.set("n", "[c", function()
+    xpdt_diff_jump(buf, -1)
+  end, { buffer = buf, desc = "Prev diff hunk (XpdtDiff)" })
   -- Recompute live as you edit. Debounced (~100ms) so a big file does not re-diff on
   -- every keystroke; TextChanged/InsertLeave cover normal-mode edits and leaving insert.
   local grp = vim.api.nvim_create_augroup("xpdt_inline_diff_" .. buf, { clear = true })
