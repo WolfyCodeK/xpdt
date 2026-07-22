@@ -11,7 +11,7 @@ HDR="sh $X/git-log-header.sh '$ROOT' '$REFF'"
 
 while : ; do
   LINE=$(eval "$LOG" \
-    | fzf --ansi --reverse --prompt='commit > ' \
+    | fzf --ansi --no-sort --reverse --prompt='commit > ' \
         --header="$(eval "$HDR")" \
         --preview "git -C '$ROOT' show --color=never {1} | python3 -S '$X/diff-words.py'" \
         --preview-window 'down,50%,wrap' \
