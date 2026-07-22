@@ -1,4 +1,5 @@
 #!/bin/sh
+export NVIM_NOTTYFAST=1 # nvim (edit / :XpdtDiff) inherits this: skip the slow startup bg-colour query over SSH (E1568); see open-file.sh
 DIR="${XPLR_DIR:-${XPLR_FOCUS_PATH:-$PWD}}"
 [ -f "$DIR" ] && DIR="$(dirname "$DIR")"
 ROOT="$(sh "$HOME/.config/xpdt/repo-root.sh" "$DIR")"
