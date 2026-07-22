@@ -173,7 +173,7 @@ case "${1:-}" in
     printf 'preview-before-nvim %s Preview a file first, instead of opening it straight in Neovim\n' "$(box "$(get preview-before-nvim)")"
     printf 'nvim-left-exits %s In Neovim, left at the start of a line (no edits) goes back to xpdt\n' "$(box "$(get nvim-left-exits)")"
     printf 'nvim-help-bar %s In Neovim, a key-hint bar across the top of the window (applies next launch)\n' "$(box "$(get nvim-help-bar)")"
-    printf 'nvim-diff-unstaged %s Changes browser: open an unstaged file as an editable side-by-side diff\n' "$(box "$(get nvim-diff-unstaged)")"
+    printf 'nvim-diff-unstaged %s Changes browser: open an unstaged file with its changes shown inline\n' "$(box "$(get nvim-diff-unstaged)")"
 
     gap
     hdr 'THEME'

@@ -249,15 +249,79 @@ if xpdt_setting_on("nvim-help-bar") then
   vim.o.winbar = "%{%v:lua.xpdt_help_bar()%}"
 end
 
--- :XpdtDiff - open the current file in Neovim's own side-by-side diff against its git
--- index version (its unstaged changes): the left window is the read-only index content
--- and the right is the real, editable working file, both in diff mode, so the green/red
--- diff updates live as you edit. xpdt's changes browser runs this (instead of a plain
--- edit) on an unstaged entry when the "edit unstaged changes as a diff" setting is on;
--- you can also run :XpdtDiff by hand. In the diff, ]c / [c jump between changes and
--- do / dp obtain / put a change.
+-- :XpdtDiff - show the current file's unstaged changes INLINE, in the one editable
+-- window (no split): added / changed lines get a sign (+ / ~) and a subtle line tint,
+-- and the removed lines appear inline as red virtual lines where they were. It is a
+-- diff against the git index recomputed live (vim.diff) as you edit, so the marks track
+-- your changes; run :XpdtDiff again to turn it off. xpdt's changes browser runs this on
+-- an unstaged entry when the "edit unstaged changes as a diff" setting is on; it also
+-- works by hand in any tracked file. (A removed block sitting above the very first line
+-- cannot render as a virtual line at the top edge - a Neovim limitation - so a change on
+-- line 1 shows the marker but not the old text; every other position shows it. Colours
+-- are the theme's Diff{Add,Change,Delete} groups.)
+local XPDT_DIFF_NS = vim.api.nvim_create_namespace("xpdt_inline_diff")
+local xpdt_diff_index = {} -- bufnr -> the index ("before") lines, while its inline diff is on
+local xpdt_diff_timer = {} -- bufnr -> pending debounce timer
+
+local function xpdt_render_inline_diff(buf)
+  local index = xpdt_diff_index[buf]
+  if not index or not vim.api.nvim_buf_is_valid(buf) then
+    return
+  end
+  vim.api.nvim_buf_clear_namespace(buf, XPDT_DIFF_NS, 0, -1)
+  local before = table.concat(index, "\n") .. "\n"
+  local after = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n") .. "\n"
+  for _, h in ipairs(vim.diff(before, after, { result_type = "indices" }) or {}) do
+    local sa, ca, sb, cb = h[1], h[2], h[3], h[4]
+    if cb > 0 then -- added / changed lines in the working buffer
+      local hl = (ca > 0) and "DiffChange" or "DiffAdd"
+      local sign = (ca > 0) and "~" or "+"
+      for row = sb - 1, sb + cb - 2 do
+        pcall(vim.api.nvim_buf_set_extmark, buf, XPDT_DIFF_NS, row, 0, {
+          sign_text = sign,
+          sign_hl_group = hl,
+          line_hl_group = hl,
+        })
+      end
+    end
+    if ca > 0 then -- removed lines: show the index text inline as red virtual lines
+      local vlines = {}
+      for i = sa, sa + ca - 1 do
+        vlines[#vlines + 1] = { { "- " .. (index[i] or ""), "DiffDelete" } }
+      end
+      local row, above = sb - 1, cb > 0 -- above a change; below a pure deletion
+      if row < 0 then
+        row, above = 0, true
+      end
+      pcall(vim.api.nvim_buf_set_extmark, buf, XPDT_DIFF_NS, row, 0, {
+        virt_lines = vlines,
+        virt_lines_above = above,
+      })
+    end
+  end
+end
+
+local function xpdt_inline_diff_off(buf)
+  xpdt_diff_index[buf] = nil
+  if xpdt_diff_timer[buf] then
+    pcall(function()
+      xpdt_diff_timer[buf]:stop()
+    end)
+    xpdt_diff_timer[buf] = nil
+  end
+  if vim.api.nvim_buf_is_valid(buf) then
+    vim.api.nvim_buf_clear_namespace(buf, XPDT_DIFF_NS, 0, -1)
+  end
+  pcall(vim.api.nvim_del_augroup_by_name, "xpdt_inline_diff_" .. buf)
+end
+
 vim.api.nvim_create_user_command("XpdtDiff", function()
-  local file = vim.api.nvim_buf_get_name(0)
+  local buf = vim.api.nvim_get_current_buf()
+  if xpdt_diff_index[buf] then -- already on -> toggle it off
+    xpdt_inline_diff_off(buf)
+    return
+  end
+  local file = vim.api.nvim_buf_get_name(buf)
   if file == "" then
     return
   end
@@ -276,17 +340,35 @@ vim.api.nvim_create_user_command("XpdtDiff", function()
     vim.notify("XpdtDiff: no index version (file is untracked?)", vim.log.levels.WARN)
     return
   end
-  local ft = vim.bo.filetype
-  vim.cmd("diffthis")
-  vim.cmd("leftabove vnew")
-  vim.bo.buftype, vim.bo.bufhidden, vim.bo.swapfile = "nofile", "wipe", false
-  vim.api.nvim_buf_set_lines(0, 0, -1, false, index)
-  vim.bo.filetype = ft
-  vim.bo.modifiable = false
-  pcall(vim.api.nvim_buf_set_name, 0, rel .. " (index)")
-  vim.cmd("diffthis")
-  vim.cmd("wincmd p")
-end, { desc = "Side-by-side diff of the current file vs its git index (unstaged changes)" })
+  xpdt_diff_index[buf] = index
+  vim.wo.signcolumn = "yes" -- so the +/~ signs are visible
+  xpdt_render_inline_diff(buf)
+  -- Recompute live as you edit. Debounced (~100ms) so a big file does not re-diff on
+  -- every keystroke; TextChanged/InsertLeave cover normal-mode edits and leaving insert.
+  local grp = vim.api.nvim_create_augroup("xpdt_inline_diff_" .. buf, { clear = true })
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave" }, {
+    group = grp,
+    buffer = buf,
+    callback = function()
+      if xpdt_diff_timer[buf] then
+        pcall(function()
+          xpdt_diff_timer[buf]:stop()
+        end)
+      end
+      xpdt_diff_timer[buf] = vim.defer_fn(function()
+        xpdt_diff_timer[buf] = nil
+        xpdt_render_inline_diff(buf)
+      end, 100)
+    end,
+  })
+  vim.api.nvim_create_autocmd("BufWipeout", {
+    group = grp,
+    buffer = buf,
+    callback = function()
+      xpdt_inline_diff_off(buf)
+    end,
+  })
+end, { desc = "Toggle an inline diff of the current file vs its git index (unstaged changes)" })
 
 -- ===========================================================================
 -- Intellisense (LSP), opt-in per language via xpdt's `,` settings menu.
