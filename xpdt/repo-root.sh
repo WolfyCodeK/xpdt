@@ -25,7 +25,7 @@ dir="$1"
 
 anchor="$dir"
 p=""
-prev="/"
+prev=""
 IFS='/'
 set -f
 for comp in $dir; do

@@ -1,6 +1,6 @@
 #!/bin/sh
 ROOT="$1"; MODE="$2"; FILE="$3"; HASH="$4"
-[ -z "$ROOT" ] || [ -z "$FILE" ] && exit 0
+if [ -z "$ROOT" ] || [ -z "$FILE" ]; then exit 0; fi
 BASE=$(basename "$FILE")
 case "$MODE" in
   staged)
@@ -22,12 +22,19 @@ COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
 [ -z "$COLS" ] && COLS=100
 TMPD=$(mktemp -d)
+CHGPOSF=$(mktemp)
+# Clean up on any exit, not just the normal one: a ctrl-c out of the viewer used to
+# leave the temp tree behind.
+trap 'rm -rf "$TMPD" "$CHGPOSF"' EXIT INT TERM
+# The change-position file reaches the nav binds through the environment, not their
+# command strings (fzf re-parses each bind with a shell).
+XPDT_CHGPOS="$CHGPOSF"
+export XPDT_CHGPOS
 mkdir -p "$TMPD/a" "$TMPD/b"
 printf '%s\n' "$AFTER" > "$TMPD/a/$BASE"
 printf '%s\n' "$BEFORE" > "$TMPD/b/$BASE"
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$TMPD/a/$BASE" > "$TMPD/ab" 2>/dev/null
 bat --color=always --style=plain --tabs=4 --wrap=never -- "$TMPD/b/$BASE" > "$TMPD/bb" 2>/dev/null
-CHGPOSF=$(mktemp)
 RENDERED=$(eval "$DIFF0" 2>/dev/null | W=$((COLS - 4)) CHGPOSFILE="$CHGPOSF" python3 -S "$X/diff-render.py" "$TMPD/ab" "$TMPD/bb")
 FIRST=$(awk '{print $1}' "$CHGPOSF" 2>/dev/null)
 POSBIND=""
@@ -39,9 +46,8 @@ printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 printf '%s\n' "$RENDERED" | fzf --ansi --no-sort --disabled --reverse --prompt="$BASE > " \
   --scroll-off=9999 \
   $POSBIND \
-  --header="$(sh $X/wrap-header.sh '[→] next change    [shift-→] prev change    [←] back')" \
-  --bind "right:transform:sh $X/diff-nav.sh next {n} '$CHGPOSF'" \
-  --bind "shift-right:transform:sh $X/diff-nav.sh prev {n} '$CHGPOSF'" \
+  --header="$(sh "$X/wrap-header.sh" '[→] next change    [shift-→] prev change    [←] back')" \
+  --bind "right:transform:sh \"$X/diff-nav.sh\" next {n} \"\$XPDT_CHGPOS\"" \
+  --bind "shift-right:transform:sh \"$X/diff-nav.sh\" prev {n} \"\$XPDT_CHGPOS\"" \
   --bind 'left:abort' \
   --bind 'q:ignore,enter:ignore' || true
-rm -rf "$TMPD" "$CHGPOSF"

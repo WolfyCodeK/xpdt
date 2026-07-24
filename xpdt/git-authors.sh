@@ -7,10 +7,17 @@
 DEPTH=500
 dir="$1"
 [ -z "$dir" ] && exit 0
-if [ -n "$(git -C "$dir" ls-tree -d --name-only HEAD 2>/dev/null)" ]; then
-  files=$(git -C "$dir" ls-tree HEAD 2>/dev/null | awk -F'\t' '$1 ~ /blob/ {print $2}')
+
+# core.quotePath=false: git otherwise C-quotes any path with a byte >= 0x80
+# ("caf\303\251.txt"), and the escaped name never matches the absolute path the
+# author cache is keyed by - so a file with a non-ASCII name silently showed no
+# author. (One path per line here, so a space needs no quoting either way.)
+g() { git -c core.quotePath=false -C "$dir" "$@"; }
+
+if [ -n "$(g ls-tree -d --name-only HEAD 2>/dev/null)" ]; then
+  files=$(g ls-tree HEAD 2>/dev/null | awk -F'\t' '$1 ~ /blob/ {print $2}')
   [ -z "$files" ] && exit 0
-  printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 git -C "$dir" log -n "$DEPTH" --format='@@@%an' --name-only -- 2>/dev/null
+  printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 git -c core.quotePath=false -C "$dir" log -n "$DEPTH" --format='@@@%an' --name-only -- 2>/dev/null
 else
-  git -C "$dir" log -n "$DEPTH" --format='@@@%an' --name-only -- . 2>/dev/null
+  g log -n "$DEPTH" --format='@@@%an' --name-only -- . 2>/dev/null
 fi

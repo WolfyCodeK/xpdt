@@ -192,6 +192,20 @@ local function xpdt_setting_on(key)
   return on
 end
 
+-- Where the "I left via a held <Left>" flag lives, so flush-input.sh can drain the
+-- key's auto-repeat. xpdt exports XPDT_LEFT_EXIT (xpdt/tmpflag.sh) before launching
+-- Neovim, so normally we just use that; the fallback recreates the same per-user path
+-- under $TMPDIR (per-user on macOS) rather than a fixed, squattable /tmp name.
+local function xpdt_left_exit_flag()
+  local from_env = vim.env.XPDT_LEFT_EXIT
+  if from_env and from_env ~= "" then
+    return from_env
+  end
+  local tmp = (vim.env.TMPDIR or "/tmp"):gsub("/+$", "")
+  local who = vim.env.USER or vim.env.LOGNAME or tostring((vim.uv or vim.loop).getuid())
+  return tmp .. "/xpdt-left-exit-" .. who
+end
+
 -- Optional (xpdt setting "nvim-left-exits"): when nothing is modified, <Left> at the
 -- start of a line quits back to xpdt - so `left` still means "back" once you can go no
 -- further left, matching the file manager. It never fires with unsaved edits (it
@@ -204,7 +218,9 @@ if xpdt_setting_on("nvim-left-exits") then
       -- drains the key's auto-repeat until you release instead of letting it overshoot
       -- xpdt up through directories. The repeats arrive after Neovim closes, so a plain
       -- flush misses them; this flag switches flush-input.sh into drain-until-quiet mode.
-      pcall(vim.fn.writefile, {}, "/tmp/xpdt-left-exit")
+      -- The path comes from the scripts that launched us (xpdt/tmpflag.sh exports it);
+      -- the fallback derives the same per-user path for a hand-started Neovim.
+      pcall(vim.fn.writefile, {}, xpdt_left_exit_flag())
       vim.cmd("qall")
     else
       vim.cmd("normal! h")
