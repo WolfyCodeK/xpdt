@@ -65,6 +65,12 @@ fzf and xplr hashes were cross-checked against the checksum files those projects
 publish; bat, Neovim and tree-sitter publish none, so theirs were recorded from a
 verified-TLS download. Verification needs `sha256sum`, `shasum` or `openssl` (macOS
 and Linux both ship at least one).
+Re-running it **keeps your settings** - the theme, the confirmation-gate choices and
+the intellisense languages are carried across even if you reinstall from a fresh
+clone or over an existing `~/.config/xpdt` directory. To go back to factory settings
+deliberately, use the `RESET` row at the bottom of xpdt's `,` settings menu; it
+always asks for the two-digit code.
+
 Ensure `~/.local/bin` is on your `PATH`, and set a
 [Nerd Font](https://www.nerdfonts.com/) (for example Hack Nerd Font) as your
 terminal font so the icons render. Re-running is safe and idempotent.
