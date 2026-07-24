@@ -4,11 +4,20 @@
 # Args: ROOT GROUP FILE. GROUP is the entry's group: 'unstaged' -> stage or discard
 # hunks, 'staged' -> unstage hunks.
 ROOT="$1"; GROUP="$2"; FILE="$3"
-[ -z "$ROOT" ] || [ -z "$FILE" ] && exit 0
+if [ -z "$ROOT" ] || [ -z "$FILE" ]; then exit 0; fi
 # Clear leftover output (e.g. confirmation prompts) before this browser paints.
 printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 X="$HOME/.config/xpdt"
-LIST="sh $X/git-hunk.sh list '$ROOT' $GROUP '$FILE'"
+
+# Root, group and file reach the fzf binds through the ENVIRONMENT rather than being
+# pasted into their command strings: fzf re-parses each bind with a shell, so a path
+# containing a quote or $(...) would otherwise be executed - and a filename with a
+# space would split into two arguments.
+XPDT_ROOT="$ROOT"; XPDT_GROUP="$GROUP"; XPDT_FILE="$FILE"
+export XPDT_ROOT XPDT_GROUP XPDT_FILE
+HUNK="sh \"$X/git-hunk.sh\""
+ARGS="\"\$XPDT_ROOT\" \"\$XPDT_GROUP\" \"\$XPDT_FILE\""
+LIST="$HUNK list $ARGS"
 
 if [ -z "$(eval "$LIST")" ]; then
   printf '\nNo hunks to stage for %s.\n' "$FILE" > /dev/tty
@@ -27,9 +36,9 @@ else
 fi
 
 eval "$LIST" | fzf --ansi --no-sort --reverse --disabled --no-input \
-  --header="$(sh $X/wrap-header.sh "$HDR")" \
-  --preview "sh $X/git-hunk.sh show '$ROOT' $GROUP '$FILE' {1} | python3 -S $X/diff-words.py" \
+  --header="$(sh "$X/wrap-header.sh" "$HDR")" \
+  --preview "$HUNK show $ARGS {1} | python3 -S \"$X/diff-words.py\"" \
   --preview-window 'down,72%,wrap' \
-  --bind "s:execute(sh $X/git-hunk.sh apply '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
-  --bind "d:execute(sh $X/git-hunk.sh discard '$ROOT' $GROUP '$FILE' {1})+reload($LIST)" \
+  --bind "s:execute($HUNK apply $ARGS {1})+reload($LIST)" \
+  --bind "d:execute($HUNK discard $ARGS {1})+reload($LIST)" \
   --bind 'left:abort,esc:abort,q:abort,enter:ignore' || true

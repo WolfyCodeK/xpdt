@@ -12,6 +12,9 @@
 # forces termguicolors and a dark theme, so the result is never needed. (Must be an env
 # var set before Neovim starts - `:set nottyfast` in config is too late.)
 export NVIM_NOTTYFAST=1
+# $XPDT_LEFT_EXIT, so the Neovim we launch writes the left-exit flag to the same path
+# flush-input.sh reads below.
+. "$HOME/.config/xpdt/tmpflag.sh"
 F="$XPLR_FOCUS_PATH"
 [ -z "$F" ] && exit 0
 case "$F" in /*) ;; *) F="$PWD/$F" ;; esac

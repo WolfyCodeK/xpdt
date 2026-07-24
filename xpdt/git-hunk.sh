@@ -11,7 +11,7 @@
 # @@ block; extracted from the live diff each time, so sequential hunk ops stay
 # valid as line numbers shift.
 MODE="$1"; ROOT="$2"; GROUP="$3"; FILE="$4"; INDEX="$5"
-[ -z "$ROOT" ] || [ -z "$FILE" ] && exit 0
+if [ -z "$ROOT" ] || [ -z "$FILE" ]; then exit 0; fi
 
 src() {
   if [ "$GROUP" = staged ]; then

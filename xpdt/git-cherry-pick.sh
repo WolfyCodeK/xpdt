@@ -3,7 +3,7 @@
 # tree (git does), is gated by the confirmation code, and auto-aborts on conflict
 # so the branch is left exactly as it was.
 ROOT="$1"; HASH="$2"
-[ -z "$ROOT" ] || [ -z "$HASH" ] && exit 0
+if [ -z "$ROOT" ] || [ -z "$HASH" ]; then exit 0; fi
 printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 if [ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ]; then
   printf 'Working tree has uncommitted changes; commit or stash before cherry-picking.\n' > /dev/tty

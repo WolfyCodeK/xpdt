@@ -17,7 +17,8 @@
 #
 # 2. Any other buffered burst (e.g. letters typed into the / or \ search then aborted):
 #    the bytes are already queued, so a single tcflush clears them.
-FLAG="/tmp/xpdt-left-exit"
+. "$HOME/.config/xpdt/tmpflag.sh" # $XPDT_LEFT_EXIT (also inherited when a caller exported it)
+FLAG="$XPDT_LEFT_EXIT"
 if [ -f "$FLAG" ]; then
   rm -f "$FLAG"
   python3 -S -c '

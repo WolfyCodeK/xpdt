@@ -34,14 +34,12 @@ xpdt installs pinned tool versions (the config relies on recent xplr, fzf and
 Neovim features, so exact releases matter), then symlinks the two configs into
 `~/.config`:
 
-| Tool        | Version |
-| ----------- | ------- |
-| xplr        | 1.1.0   |
-| bat         | 0.26.1  |
-| fzf         | 0.74.0  |
-| ripgrep     | 14.1.1  |
-| Neovim      | 0.12.4  |
-| tree-sitter | 0.26.11 |
+- **xplr** — 1.1.0
+- **bat** — 0.26.1
+- **fzf** — 0.74.0
+- **ripgrep** — 14.1.1
+- **Neovim** — 0.12.4
+- **tree-sitter** — 0.26.11
 
 ### macOS and Linux
 
@@ -95,9 +93,10 @@ Ubuntu 24.04, Debian 13, Fedora 39 and newer). On older systems `install.sh`
 builds xplr 1.1.0 from source with Rust ([rustup.rs](https://rustup.rs)) when
 `cargo` is available. macOS is unaffected.
 
-Three features are macOS-only and simply do nothing elsewhere: clipboard copy
-(`pbcopy`), delete-to-Trash (Finder), and the preview's external-change
-auto-reload (`stat -f`). Everything else is portable.
+Two features are macOS-only and simply do nothing elsewhere: clipboard copy
+(`pbcopy`) and delete-to-Trash (Finder). Everything else is portable - including
+the `/` file search and the preview's external-change auto-reload, which both
+detect the GNU vs BSD `stat` format flag rather than assuming macOS.
 
 ## Credits and license
 

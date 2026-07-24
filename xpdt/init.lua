@@ -150,18 +150,24 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
     {
       BashExec = [===[
         X="$HOME/.config/xpdt"
-        SF="$X/.search-scope"; [ -f "$SF" ] || echo here > "$SF"
-        HERE="$(pwd)"; ROOT="${XPLR_INITIAL_PWD:-$HERE}"
-        GEN="sh $X/search.sh files '$SF' '$HERE' '$ROOT'"
+        . "$X/tmpflag.sh"
+        # The scope dir, the launch dir and the scope-state file are passed to the
+        # helpers through the ENVIRONMENT, not baked into the fzf command strings.
+        # Those strings are re-parsed by a shell for every bind, so an embedded path
+        # containing a quote or $(...) - i.e. a directory name - would be executed.
+        XPDT_SCOPE_FILE="$X/.search-scope"; [ -f "$XPDT_SCOPE_FILE" ] || echo here > "$XPDT_SCOPE_FILE"
+        XPDT_SCOPE_HERE="$(pwd)"; XPDT_SCOPE_ROOT="${XPLR_INITIAL_PWD:-$XPDT_SCOPE_HERE}"
+        export XPDT_SCOPE_FILE XPDT_SCOPE_HERE XPDT_SCOPE_ROOT
+        GEN="sh \"$X/search.sh\" files"
         FILE=$(eval "$GEN" | fzf --no-sort --exact \
-          --header="$(sh $X/scope.sh header "$SF")" \
-          --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GEN" \
+          --header="$(sh "$X/scope.sh" header)" \
+          --bind "tab:execute-silent(sh \"$X/scope.sh\" toggle)+transform-header(sh \"$X/scope.sh\" header)+reload:$GEN" \
           --bind "change:reload:sleep 0.1; $GEN" \
-          --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { touch /tmp/xpdt-left-exit; echo abort; }' \
+          --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { : > "$XPDT_LEFT_EXIT"; echo abort; }' \
           --bind 'right:accept' \
           --bind 'enter:ignore')
         if [ -n "$FILE" ]; then
-          FULL=$(sh "$X/resolve.sh" "$SF" "$HERE" "$ROOT" "$FILE")
+          FULL=$(sh "$X/resolve.sh" "$FILE")
           # `right` (only - never enter) confirms the focused hit: a folder is entered
           # (like the main view), a file opens in Neovim (or the preview first, per the
           # setting).
@@ -187,21 +193,25 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
     {
       BashExec = [===[
         X="$HOME/.config/xpdt"
-        SF="$X/.search-scope"; [ -f "$SF" ] || echo here > "$SF"
-        HERE="$(pwd)"; ROOT="${XPLR_INITIAL_PWD:-$HERE}"
-        GENQ="sh $X/search.sh content '$SF' '$HERE' '$ROOT'"
+        . "$X/tmpflag.sh"
+        # Scope state goes through the environment, not the fzf command strings - see
+        # the `/` bind above for why.
+        XPDT_SCOPE_FILE="$X/.search-scope"; [ -f "$XPDT_SCOPE_FILE" ] || echo here > "$XPDT_SCOPE_FILE"
+        XPDT_SCOPE_HERE="$(pwd)"; XPDT_SCOPE_ROOT="${XPLR_INITIAL_PWD:-$XPDT_SCOPE_HERE}"
+        export XPDT_SCOPE_FILE XPDT_SCOPE_HERE XPDT_SCOPE_ROOT
+        GENQ="sh \"$X/search.sh\" content"
         # `right` opens the focused hit in Neovim at the matched line; `enter` does
         # nothing (opening a file is right-only, across the whole app). `left` walks
         # back through the query and exits the search once it is empty.
         : | fzf --ansi --disabled --no-sort \
-          --header="$(sh $X/scope.sh header "$SF")" \
+          --header="$(sh "$X/scope.sh" header)" \
           --bind "change:reload:sleep 0.1; $GENQ {q}" \
-          --bind "tab:execute-silent(sh $X/scope.sh toggle '$SF')+transform-header(sh $X/scope.sh header '$SF')+reload:$GENQ {q}" \
-          --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { touch /tmp/xpdt-left-exit; echo abort; }' \
-          --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1})\" XPLR_PREVIEW_LINE={2} sh $X/open-or-preview.sh)" \
+          --bind "tab:execute-silent(sh \"$X/scope.sh\" toggle)+transform-header(sh \"$X/scope.sh\" header)+reload:$GENQ {q}" \
+          --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { : > "$XPDT_LEFT_EXIT"; echo abort; }' \
+          --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh \"$X/resolve.sh\" {1})\" XPLR_PREVIEW_LINE={2} sh \"$X/open-or-preview.sh\")" \
           --bind 'enter:ignore' \
           --delimiter : \
-          --preview "F=\$(sh $X/resolve.sh '$SF' '$HERE' '$ROOT' {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \
+          --preview "F=\$(sh \"$X/resolve.sh\" {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \
           --preview-window 'up,60%,+{2}-5' >/dev/null 2>&1 || true
         # Drain keystrokes buffered while fzf was open so they do not leak into xpdt
         # afterwards and fire key bindings.
@@ -291,6 +301,17 @@ local GIT_LOG_TTL = 10
 local CLAUDE_TTL = 5
 local xplrignore_active = false
 
+-- Quote a value for POSIX sh. Paths reach the helper scripts as command STRINGS
+-- (neither io.popen nor xplr's BashExec takes an argument vector), so anything
+-- interpolated into one MUST go through this: a directory named `x$(cmd)` or
+-- ``x`cmd` `` would otherwise be executed by the shell simply because xpdt was
+-- pointed at it (render_layout resolves the repo root on every render). Single
+-- quotes make the shell treat every byte literally; an embedded ' is closed,
+-- escaped and reopened.
+local function shq(s)
+  return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
 local function dir_of(path)
   local parent = path:match("^(.*)/[^/]+$")
   if parent == nil or parent == "" then
@@ -321,7 +342,7 @@ local function repo_root_of(dir)
   if cached ~= nil then
     return cached
   end
-  local handle = io.popen('sh "' .. os.getenv("HOME") .. '/.config/xpdt/repo-root.sh" "' .. dir .. '" 2>/dev/null')
+  local handle = io.popen('sh "$HOME/.config/xpdt/repo-root.sh" ' .. shq(dir) .. " 2>/dev/null")
   local root = handle:read("*a"):gsub("%s+$", "")
   handle:close()
   if root == "" then
@@ -338,30 +359,46 @@ local function git_status(root)
     return cached
   end
   local dirty = {}
-  local lines = {}
+  local entries = {} -- { x = , y = , path = } per changed path, in git's order
   local ignored = {} -- exact ignored file paths
   local ignored_dirs = {} -- ignored directories (git collapses them; treated as prefixes)
   -- --ignored adds `!!` rows for ignored paths (ignored dirs collapsed to one entry) so
-  -- the author column can flag them; they are kept out of `lines` / `dirty`, so the
+  -- the author column can flag them; they are kept out of `entries` / `dirty`, so the
   -- changes box and the M column ignore them exactly as before.
-  local handle = io.popen('git -C "' .. root .. '" status --porcelain --ignored 2>/dev/null')
-  for line in handle:lines() do
-    if #line > 3 then
-      local xy = line:sub(1, 2)
-      local rel = line:sub(4)
-      local arrow = rel:find(" -> ", 1, true)
-      if arrow then
-        rel = rel:sub(arrow + 4)
+  --
+  -- -z is what makes non-ASCII and spaced filenames work: the default porcelain format
+  -- C-quotes any path containing a space or a byte >= 0x80 ("caf\303\251.txt"), and the
+  -- escaped string never matches the real file - so the M dot and the changes box
+  -- silently skipped those files. -z emits raw paths, NUL-separated. A rename/copy
+  -- record is followed by one extra record holding the ORIGINAL path, consumed by `skip`.
+  local handle = io.popen("git -C " .. shq(root) .. " status --porcelain --ignored -z 2>/dev/null")
+  local out = handle:read("*a") or ""
+  handle:close()
+  local pos, skip = 1, false
+  while true do
+    local nul = out:find("\0", pos, true)
+    if not nul then
+      break
+    end
+    local rec = out:sub(pos, nul - 1)
+    pos = nul + 1
+    if skip then
+      skip = false
+    elseif #rec > 3 then
+      local x = rec:sub(1, 1)
+      local y = rec:sub(2, 2)
+      local rel = rec:sub(4)
+      if x == "R" or x == "C" or y == "R" or y == "C" then
+        skip = true -- the next record is this rename's original path
       end
-      rel = rel:gsub('^"', ''):gsub('"$', '')
-      if xy == "!!" then
+      if x == "!" and y == "!" then
         if rel:sub(-1) == "/" then
           ignored_dirs[#ignored_dirs + 1] = root .. "/" .. rel:sub(1, -2)
         else
           ignored[root .. "/" .. rel] = true
         end
       else
-        lines[#lines + 1] = line
+        entries[#entries + 1] = { x = x, y = y, path = rel }
         local abs = root .. "/" .. rel
         dirty[abs] = true
         local d = dir_of(abs)
@@ -379,8 +416,7 @@ local function git_status(root)
       end
     end
   end
-  handle:close()
-  git_status_cache[root] = { time = now, dirty = dirty, lines = lines, ignored = ignored, ignored_dirs = ignored_dirs }
+  git_status_cache[root] = { time = now, dirty = dirty, entries = entries, ignored = ignored, ignored_dirs = ignored_dirs }
   return git_status_cache[root]
 end
 
@@ -399,18 +435,14 @@ local function path_ignored(st, path)
 end
 
 local function git_changes_body(root)
-  local lines = git_status(root).lines
   local staged = {}
   local unstaged = {}
-  for _, line in ipairs(lines) do
-    local x = line:sub(1, 1)
-    local y = line:sub(2, 2)
-    local path = line:sub(4)
-    if x ~= " " and x ~= "?" then
-      staged[#staged + 1] = "  " .. x .. " " .. path
+  for _, e in ipairs(git_status(root).entries) do
+    if e.x ~= " " and e.x ~= "?" then
+      staged[#staged + 1] = "  " .. e.x .. " " .. e.path
     end
-    if y ~= " " then
-      unstaged[#unstaged + 1] = "  " .. y .. " " .. path
+    if e.y ~= " " then
+      unstaged[#unstaged + 1] = "  " .. e.y .. " " .. e.path
     end
   end
   local body = {}
@@ -430,7 +462,7 @@ local function git_changes_body(root)
 end
 
 local function batch_git_authors(dirabs, root)
-  local handle = io.popen('sh "' .. os.getenv("HOME") .. '/.config/xpdt/git-authors.sh" "' .. dirabs .. '" 2>/dev/null')
+  local handle = io.popen('sh "$HOME/.config/xpdt/git-authors.sh" ' .. shq(dirabs) .. " 2>/dev/null")
   if not handle then
     return
   end
@@ -532,14 +564,14 @@ end
 
 xplr.fn.custom.open_git_browser = function(app)
   return {
-    { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xpdt/git-log-browser.sh\"" },
+    { BashExec = "XPLR_DIR=" .. shq(app.pwd) .. ' sh "$HOME/.config/xpdt/git-log-browser.sh"' },
     { CallLuaSilently = "custom.invalidate_git" },
   }
 end
 
 xplr.fn.custom.open_changes_browser = function(app)
   return {
-    { BashExec = "XPLR_DIR='" .. app.pwd .. "' sh \"$HOME/.config/xpdt/git-changes-browser.sh\"" },
+    { BashExec = "XPLR_DIR=" .. shq(app.pwd) .. ' sh "$HOME/.config/xpdt/git-changes-browser.sh"' },
     { CallLuaSilently = "custom.invalidate_git" },
   }
 end
@@ -619,7 +651,7 @@ local function claude_indicator(root)
     return cached.text
   end
   local text = ""
-  local handle = io.popen('sh "' .. os.getenv("HOME") .. '/.config/xpdt/claude-status.sh" "' .. root .. '" 2>/dev/null')
+  local handle = io.popen('sh "$HOME/.config/xpdt/claude-status.sh" ' .. shq(root) .. " 2>/dev/null")
   if handle then
     text = handle:read("*a"):gsub("%s+$", "")
     handle:close()
@@ -636,15 +668,16 @@ xplr.fn.custom.render_git_graph = function(ctx)
   local now = now_secs()
   local cached = git_log_cache[root]
   if not (cached and (now - cached.time) < GIT_LOG_TTL) then
+    local gitc = "git -C " .. shq(root) .. " "
     local branch = ""
-    local bh = io.popen('git -C "' .. root .. '" rev-parse --abbrev-ref HEAD 2>/dev/null')
+    local bh = io.popen(gitc .. "rev-parse --abbrev-ref HEAD 2>/dev/null")
     if bh then
       branch = bh:read("*a"):gsub("%s+$", "")
       bh:close()
     end
     local ab = ""
     local has_upstream = false
-    local abh = io.popen('git -C "' .. root .. '" rev-list --left-right --count "@{u}...HEAD" 2>/dev/null')
+    local abh = io.popen(gitc .. 'rev-list --left-right --count "@{u}...HEAD" 2>/dev/null')
     if abh then
       local counts = abh:read("*a"):gsub("%s+$", "")
       abh:close()
@@ -668,7 +701,7 @@ xplr.fn.custom.render_git_graph = function(ctx)
     -- upstream we cannot tell, so every commit keeps the plain filled dot.
     local unpushed = {}
     if has_upstream then
-      local uh = io.popen('git -C "' .. root .. '" rev-list "@{u}..HEAD" 2>/dev/null')
+      local uh = io.popen(gitc .. 'rev-list "@{u}..HEAD" 2>/dev/null')
       if uh then
         for sha in uh:lines() do
           unpushed[sha] = true
@@ -677,7 +710,7 @@ xplr.fn.custom.render_git_graph = function(ctx)
       end
     end
     local lines = {}
-    local lh = io.popen('git -C "' .. root .. '" log --format="%H%x09%s%x09%an" -n 100 2>/dev/null')
+    local lh = io.popen(gitc .. 'log --format="%H%x09%s%x09%an" -n 100 2>/dev/null')
     if lh then
       for line in lh:lines() do
         local sha, rest = line:match("^(%x+)\t(.*)$")

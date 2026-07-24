@@ -11,6 +11,7 @@ case "$F" in
 esac
 
 X="$HOME/.config/xpdt"
+. "$X/tmpflag.sh" # $XPDT_LEFT_EXIT, written by the `M` folder picker's left-exit
 GATE="$X/gate.sh"
 flush() { python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' 2>/dev/null; }
 
@@ -46,6 +47,7 @@ case "$OP" in
     printf 'Renaming: %s\n' "$SRC"
     flush
     TMP=$(mktemp)
+    trap 'rm -f "$TMP"' EXIT INT TERM
     python3 -S "$X/prompt-prefill.py" "$SRC" "$TMP" 'New name: ' < /dev/tty > /dev/tty 2>&1
     NEW=$(cat "$TMP" 2>/dev/null); rm -f "$TMP"
     [ -z "$NEW" ] && { printf 'Cancelled.\n'; sleep 0.5; exit 0; }
@@ -72,7 +74,7 @@ case "$OP" in
         | fzf --reverse --prompt='move to folder > ' \
             --header="$(sh "$X/wrap-header.sh" "move '$SRC' into a folder    [enter] pick    [esc] cancel")" \
             --bind 'enter:accept,right:accept,esc:abort' \
-            --bind 'left:execute-silent(touch /tmp/xpdt-left-exit)+abort'
+            --bind 'left:execute-silent(: > "$XPDT_LEFT_EXIT")+abort'
     )
     sh "$X/flush-input.sh"
     [ -z "$REL" ] && { printf '\nCancelled.\n'; sleep 0.4; exit 0; }
