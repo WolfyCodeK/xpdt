@@ -93,12 +93,85 @@ case "$PLATFORM-$ARCH" in
   macos-arm64) RUST_TARGET=aarch64-apple-darwin; FZF_PLAT=darwin_arm64; NVIM_PLAT=macos-arm64; XPLR_ASSET=xplr-macos-aarch64.tar.gz; TS_PLAT=macos-arm64 ;;
 esac
 
+# --- integrity ---------------------------------------------------------------
+# Every artifact downloaded below is pinned to a SHA-256 and verified before use.
+# Version pinning alone only stops accidental drift - it cannot detect a swapped or
+# tampered artifact, and what this script installs are binaries you then run. A
+# mismatch is fatal; an artifact with no pin here is refused rather than installed.
+#
+# Provenance: the ripgrep, fzf and xplr hashes were cross-checked against the
+# checksum files those projects publish alongside their releases (12/12 matched).
+# bat, Neovim and tree-sitter publish no checksums, so theirs - and the bat theme's
+# - are trust-on-first-use values recorded from a verified-TLS download.
+#
+# Bumping a pinned VERSION above therefore REQUIRES adding the new artifact's hash
+# here: the filename changes, the lookup misses, and the install fails closed. Get a
+# hash with:  curl -fL <url> | sha256sum
+expected_sha() { # expected_sha ARTIFACT-FILENAME -> pinned hash, empty if unpinned
+  case "$1" in
+    ripgrep-14.1.1-aarch64-apple-darwin.tar.gz) echo 24ad76777745fbff131c8fbc466742b011f925bfa4fffa2ded6def23b5b937be ;;
+    ripgrep-14.1.1-aarch64-unknown-linux-gnu.tar.gz) echo c827481c4ff4ea10c9dc7a4022c8de5db34a5737cb74484d62eb94a95841ab2f ;;
+    ripgrep-14.1.1-x86_64-apple-darwin.tar.gz) echo fc87e78f7cb3fea12d69072e7ef3b21509754717b746368fd40d88963630e2b3 ;;
+    ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz) echo 4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e ;;
+    bat-v0.26.1-aarch64-apple-darwin.tar.gz) echo e30beff26779c9bf60bb541e1d79046250cb74378f2757f8eb250afddb19e114 ;;
+    bat-v0.26.1-aarch64-unknown-linux-gnu.tar.gz) echo 422eb73e11c854fddd99f5ca8461c2f1d6e6dce0a2a8c3d5daade5ffcb6564aa ;;
+    bat-v0.26.1-x86_64-apple-darwin.tar.gz) echo 830d63b0bba1fa040542ec569e3cf77f60d3356b9de75116a344b061e0894245 ;;
+    bat-v0.26.1-x86_64-unknown-linux-musl.tar.gz) echo 0dcd8ac79732c0d5b136f11f4ee00e581440e16a44eab5b3105b611bbf2cf191 ;;
+    fzf-0.74.0-darwin_amd64.tar.gz) echo e2c470f058ac18615f54c0bebe0fd2956f2aa8e306a11621783a00aaa386eedd ;;
+    fzf-0.74.0-darwin_arm64.tar.gz) echo da60e8980e4239a0fc5f1fcfe873f243dfda93a6a13b696b00e1dc8584a77a87 ;;
+    fzf-0.74.0-linux_amd64.tar.gz) echo cf919f05b7581b4c744d764eaa704665d61dd6d3ca785f0df2351281dff60cda ;;
+    fzf-0.74.0-linux_arm64.tar.gz) echo bd9e6165ebdb702215d42368cbb95b8dd70a4e77ee97925adac8c31660e30ef7 ;;
+    nvim-linux-arm64.tar.gz) echo ceb7e88c6b681f0515d135dcdfad54f5eb4373b25ce6172197cd9a69c758063f ;;
+    nvim-linux-x86_64.tar.gz) echo 012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628 ;;
+    nvim-macos-arm64.tar.gz) echo 51ab83afa66d663627c2ab1be43209b0f4e81360d4598b53efaa4d8195f24c89 ;;
+    nvim-macos-x86_64.tar.gz) echo 03fe16f8dd9f1e9eaf52d5e294913a39917b9e2faea30d7fb0fb385fbd36fe59 ;;
+    xplr-linux-aarch64.tar.gz) echo 1afc0974ac48de2e1fb700a8cab159949f37df1e4294edd2446bda872b350667 ;;
+    xplr-linux.tar.gz) echo 0ad6f8942ee8b6287945752242fc3f115d8f7aa32f859e8083c4df607f29831a ;;
+    xplr-macos-aarch64.tar.gz) echo 383e6fbe66d4ded1389b57fbce42865db17f65b4a216eefadefa615777022844 ;;
+    xplr-macos.tar.gz) echo 91768837dc4eae4871dc2653aee02c834480d900f46c572c27a75e405dc65c51 ;;
+    tree-sitter-linux-arm64.gz) echo e47dd59bf2f21ad7c15771546a724464ee3c008a60fbb61c6860bd19a44b3060 ;;
+    tree-sitter-linux-x64.gz) echo 8dac3c89bb632eece700ea7a261ad963b251f2228c4aef3b58458ebea8dbe4eb ;;
+    tree-sitter-macos-arm64.gz) echo 0bb646b2a29007233bd44855f00d0b8e238084d5b442f097d841b476318c2c90 ;;
+    tree-sitter-macos-x64.gz) echo 0da547d2622ba1583e4c748bb44db5b79af56462da41acf377b9fdc2eb2cd49f ;;
+    tokyonight_night.tmTheme) echo 955c14a16b04917428ffa8b567e2d3760f872f1044a1ad157857001274dceecd ;;
+  esac
+}
+
+sha256_of() { # sha256_of FILE -> lowercase hex, empty if no hashing tool exists
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1   # macOS
+  elif command -v openssl >/dev/null 2>&1; then openssl dgst -sha256 "$1" | awk '{print $NF}'
+  fi
+}
+
 # --- helpers ----------------------------------------------------------------
-dl() { # dl URL DEST
-  info "downloading $(basename "$2")"
-  if command -v curl >/dev/null 2>&1; then curl -fL --proto '=https' --tlsv1.2 -sS -o "$2" "$1"
-  elif command -v wget >/dev/null 2>&1; then wget -qO "$2" "$1"
-  else die "need curl or wget"; fi
+dl() { # dl URL DEST - download, then verify against the pin. Non-zero on any failure,
+       # so `set -e` aborts the install unless the caller explicitly guards it.
+  name=$(basename "$1")
+  want=$(expected_sha "$name")
+  if [ -z "$want" ]; then
+    warn "no pinned checksum for $name - refusing to download it"
+    return 1
+  fi
+  info "downloading $name"
+  got=0
+  if command -v curl >/dev/null 2>&1; then
+    if curl -fL --proto '=https' --tlsv1.2 -sS -o "$2" "$1"; then got=1; fi
+  elif command -v wget >/dev/null 2>&1; then
+    if wget -q --https-only -O "$2" "$1"; then got=1; fi
+  else
+    die "need curl or wget"
+  fi
+  [ "$got" = 1 ] || { warn "download failed: $name"; return 1; }
+  have=$(sha256_of "$2")
+  [ -n "$have" ] || { rm -f "$2"; die "no sha256 tool (sha256sum / shasum / openssl); cannot verify downloads"; }
+  if [ "$have" != "$want" ]; then
+    rm -f "$2"
+    warn "CHECKSUM MISMATCH for $name - discarded, NOT installed"
+    warn "  expected $want"
+    warn "  got      $have"
+    return 1
+  fi
 }
 ghrel() { printf 'https://github.com/%s/releases/download/%s/%s' "$1" "$2" "$3"; }
 at_version() { command -v "$1" >/dev/null 2>&1 && "$1" --version 2>/dev/null | grep -q "$2"; }
@@ -263,7 +336,9 @@ install_bat_theme() {
   mkdir -p "$themes_dir" 2>/dev/null || return 0
   tn="$themes_dir/tokyonight_night.tmTheme"
   url="https://raw.githubusercontent.com/folke/tokyonight.nvim/$TOKYONIGHT_REF/extras/sublime/tokyonight_night.tmTheme"
-  if dl "$url" "$tn" 2>/dev/null && [ -s "$tn" ]; then
+  # Not silenced: this one is best-effort (guarded by the `if`), but a CHECKSUM
+  # MISMATCH must still be visible rather than looking like an offline skip.
+  if dl "$url" "$tn" && [ -s "$tn" ]; then
     if "$bat_bin" cache --build >/dev/null 2>&1; then
       info "built the Tokyo Night bat theme"
     else

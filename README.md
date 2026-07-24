@@ -30,9 +30,9 @@ get two commands:
 
 ## Install
 
-xpdt installs pinned tool versions (the config relies on recent xplr, fzf and
-Neovim features, so exact releases matter), then symlinks the two configs into
-`~/.config`:
+xpdt installs pinned, checksum-verified tool versions (the config relies on recent
+xplr, fzf and Neovim features, so exact releases matter), then symlinks the two
+configs into `~/.config`:
 
 - **xplr** — 1.1.0
 - **bat** — 0.26.1
@@ -56,6 +56,15 @@ symlinked out of it, so moving or deleting it breaks them.
 `--prefix DIR` or the `XPDT_PREFIX` env var), backs up any existing
 `~/.config/xpdt` or `~/.config/nvim`, symlinks this repo in their place, installs
 the `xpdt` launcher next to the `xplr` binary, and bootstraps the Neovim plugins.
+
+**Every download is verified against a pinned SHA-256 before it is used**, and a
+mismatch aborts the install rather than running the binary - version pinning alone
+would not catch a swapped or tampered artifact. An artifact with no pinned hash is
+refused outright, so bumping a tool version means re-pinning its hash. The ripgrep,
+fzf and xplr hashes were cross-checked against the checksum files those projects
+publish; bat, Neovim and tree-sitter publish none, so theirs were recorded from a
+verified-TLS download. Verification needs `sha256sum`, `shasum` or `openssl` (macOS
+and Linux both ship at least one).
 Ensure `~/.local/bin` is on your `PATH`, and set a
 [Nerd Font](https://www.nerdfonts.com/) (for example Hack Nerd Font) as your
 terminal font so the icons render. Re-running is safe and idempotent.
