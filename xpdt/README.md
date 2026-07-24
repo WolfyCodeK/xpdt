@@ -79,9 +79,9 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 - **`git-commit.sh`** — Commit message prompt (bash `read -e` for arrow key editing); the commit itself is behind the confirmation gate.
 - **`git-discard.sh`** — The actual discard (tracked, untracked, staged variants), behind the confirmation gate.
 - **`git-undo.sh`** — Undo the last commit (`git reset --soft HEAD~1`), behind the confirmation gate.
-- **`gate.sh`** — The confirmation-gate store and confirm helper: `get` / `toggle` a key, `required` / `confirm <action> <msg>` (prompts for the 2 digits when the action is gated, else proceeds), and `menu` (renders the settings rows). State is `~/.config/xpdt/.gate-config`.
+- **`gate.sh`** — The settings store and confirm helper: `get` / `toggle` a key, `settheme`, `required` / `confirm <action> <msg>` (prompts for the 2 digits when the action is gated, else proceeds), `defaults` (the factory settings, used by both the installer and the reset), `reset` (restores them behind an unconditional code prompt) and `menu` (renders the settings rows). State is `~/.config/xpdt/.gate-config`.
 - **`gate-menu.sh`** — The `,` settings menu: fzf list of the master switch and each action with an `[x]` / `[ ]` checkbox; enter / space / right toggles the focused row in place (via `gate-toggle.sh`).
-- **`gate-toggle.sh`** — Toggles the focused settings row and emits `reload-sync(...)+pos({n}+1)` so the menu rebuilds with the cursor kept on that row (a plain async reload would jump it to the top).
+- **`gate-toggle.sh`** — Toggles the focused settings row and emits `reload-sync(...)+pos({n}+1)` so the menu rebuilds with the cursor kept on that row (a plain async reload would jump it to the top). For the RESET row it instead emits an `execute(...)` action, so fzf hands the terminal over for the code prompt.
 - **`file-op.sh`** — Create file / folder (`a` / `f`), rename (`m`, current name pre-filled to edit via `prompt-prefill.py`), and move (`M`, fuzzy-pick the target folder with fzf, listing `find . -type d` from the launch dir with the noise dirs pruned). Rename and move go through the gate's `move` action; it refuses moving a folder into itself.
 - **`prompt-prefill.py`** — Prompts for a line pre-filled with an editable initial value (python `readline.insert_text`), so `m` rename starts from the current name. Portable pre-fill - bash's `read -e -i` needs bash 4+, which macOS does not ship.
 - **`claude-status.sh`** — For the `claude-integration` setting: prints the `claude` panel - all recent Claude Code sessions across every repo, grouped by repo (current first), each with a status glyph (green `●` working / amber `◆` waiting on you / dim `○` idle), name, context-usage %, last-active age and (non-default) model, plus a current-task line for active ones and a `N working · M waiting · K idle` footer. Scans `~/.claude/projects/*/*.jsonl` (excluding `subagents/`), reading only each file's tail. Off unless the setting is on.
@@ -106,7 +106,7 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 - **`repo-root.sh`** — Resolves the git repo root for a directory, treating a symlinked path component as belonging to the real directory the symlink lives in (not the target's repo), so entering a symlink keeps the git context of where you came from. Used by `init.lua` and the git browsers. See Git context across symlinks below.
 - **`tmpflag.sh`** — Sourced (not run) by every script that writes or reads the left-exit flag, so they all agree on its path: `$TMPDIR` (per-user on macOS) plus the user name, rather than a fixed `/tmp` name another user could squat.
 - **`icon-preview.txt`** — A rendered reference sheet of the Nerd Font glyphs `theme.lua` assigns (`cat` it to check your terminal font renders them). Not code, not read by anything.
-- **`.gate-config`** — State file for the confirmation gate: `enabled=1/0` plus one `<action>=1/0` line per action. Absent file or key reads as on. Seeded all-on by the installer. Not code.
+- **`.gate-config`** — State file for every setting: `enabled=1/0` plus one `<action>=1/0` line per gated action, the theme, and the Neovim / intellisense toggles. Absent file or key reads as its default. Seeded from `gate.sh defaults` by the installer, restorable from the menu's RESET row, and carried across a reinstall (see below). Not code.
 - **`.search-scope`** — State file holding the current search scope. Persists across sessions. Not code.
 
 ## How the features work
@@ -121,6 +121,15 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 - That batch is bounded to the most recent `-n 500` commits. `git log --name-only` has no way to stop once it has seen each file, so without a bound it walks the repo's entire history every time you enter a directory - the main lag on a deep repo. A file's last author is almost always within that window; older files simply show no author.
 - Anything not covered by the batch (an untracked file, or a file whose last commit is older than the window) is left blank - not resolved with a per-file `git log`. That per-file fallback used to spawn a `git` process for every such entry while the table rendered, which was a large part of the first-open lag for a directory full of new/untracked files.
 - A gitignored path shows `ignored` in bold red instead of an author. `git_status` runs `git status --porcelain --ignored` (git collapses an ignored directory to a single `dir/` entry, so this stays cheap), and those `!!` rows are kept out of the changes box and the M column - they only feed the author column's ignored flag (`path_ignored`).
+
+### Your settings survive a reinstall
+
+`.gate-config` and `.search-scope` live inside the clone (that is what `~/.config/xpdt` points at) and are git-ignored, so a clone never carries them. Re-running `install.sh` from the **same** clone therefore always kept them - only the symlink was recreated - but two other paths silently did not, and handed you factory defaults while your real settings sat orphaned at the old location:
+
+- installing from a **different or freshly re-cloned** copy, because the new clone has no `.gate-config` and the installer seeded one; and
+- installing when `~/.config/xpdt` was a **real directory** rather than a symlink, because it was moved aside to `xpdt.bak.<timestamp>` and nothing was brought out of it.
+
+`install.sh` now copies both files across in those cases (`carry_user_state`, reading the previous symlink target or the backup it just made) before seeding anything, and only seeds defaults when there is genuinely nothing to carry. It never overwrites a config that is already in place.
 
 ### Paths are data, never shell text
 
@@ -199,6 +208,13 @@ Every mutating action is guarded by a "type two random digits to confirm" gate, 
 - The list is split into three labelled sections, separated by blank lines so the groups read as clearly distinct: **General** (the non-gate display settings), **Neovim intellisense** (per-language LSP toggles - see below), and **Confirmation gate** (the master switch, then the per-action toggles under an "Actions guarded by the code:" sub-header). The section headers and the blank spacer rows are ordinary rows carrying the key `#h`, which `gate-toggle.sh` and `gate.sh toggle` both ignore - landing on one and activating it is a harmless no-op that just keeps the cursor where it is.
 
 Turning a gate off means that action runs on a single key with no prompt, so the master switch off is genuinely "no confirmations anywhere" - the default is deliberately the safe one.
+
+The menu's last section is **RESET**: a single row (`[!]`, not a checkbox, because it is an action rather than a toggle) that rewrites `.gate-config` with the factory defaults - clearing every gate choice, the theme, the Neovim options and the intellisense languages. Two deliberate differences from every other action:
+
+- **It always asks for the code**, whatever the gate settings say. It has no per-action toggle and it ignores the master switch, because it is destructive, not undoable, and it wipes the very toggles that would otherwise govern it - "master switch off" must not turn it into a single keypress.
+- **It runs as an fzf `execute` action, not inline in `gate-toggle.sh`.** That script is a `transform`, so its stdout is parsed as fzf actions and it is never handed the terminal; a prompt printed from there would be read as actions and the read would have no tty. So `gate-toggle.sh` returns `execute(sh gate.sh reset)+reload-sync(...)+pos(...)` and lets fzf hand over the terminal.
+
+The default set lives in one place - `gate.sh defaults` - which the installer seeds into a fresh config and the reset restores, so the two cannot drift apart. Your search scope (`.search-scope`) is left alone, since it is not one of the settings the menu shows.
 
 The **General** section holds display settings that are not gates. One is **show hidden files** (dotfiles). It is stored in the same `.gate-config` (`show-hidden=1/0`, absent = on) and read at startup by `init.lua` (`read_bool_setting`) to set `general.show_hidden`. xplr 1.1.0 has no runtime message to change `show_hidden` (there is no `ToggleHidden`), so a toggle in the menu takes effect on the next launch rather than live. This replaces xplr's built-in `.` toggle, which xpdt now unbinds, so hidden-file visibility is a deliberate, persisted setting rather than an accidental keypress.
 

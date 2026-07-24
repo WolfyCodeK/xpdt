@@ -80,6 +80,8 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "right" "open a file (\\: at the matched line), or enter a folder (/)"
   sec "SETTINGS  (,)"
   row "enter" "toggle a setting, or pick the focused theme"
+  row "" "- the RESET row at the bottom restores every default"
+  row "" "- reset always asks for the 2-digit code, even with the gate off"
   row "left" "close"
   printf "\n  ${D}%s${Z}\n" "(press q or h to close)"
 } | sh "$HOME/.config/xpdt/popup.sh" "xpdt controls"

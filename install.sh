@@ -234,15 +234,41 @@ install_xplr() {
 }
 
 # --- config symlinks --------------------------------------------------------
+# Files under the config dir that hold the USER's state rather than code. They are
+# git-ignored, so a clone never carries them: without the copy below, reinstalling
+# from a DIFFERENT clone (or over a real ~/.config/xpdt) silently handed the user
+# factory defaults and orphaned their real settings at the old path.
+USER_STATE=".gate-config .search-scope"
+
+carry_user_state() { # carry_user_state FROM_DIR TO_DIR
+  if [ ! -d "$1" ] || [ "$1" = "$2" ]; then
+    return 0
+  fi
+  for f in $USER_STATE; do
+    if [ -f "$1/$f" ] && [ ! -e "$2/$f" ]; then
+      if cp "$1/$f" "$2/$f" 2>/dev/null; then
+        info "kept your existing $f"
+      else
+        warn "could not copy $1/$f - your settings remain at that path"
+      fi
+    fi
+  done
+}
+
 link_config() { # link_config NAME
   target="$HOME/.config/$1"; src="$REPO_DIR/$1"
   [ -d "$src" ] || die "missing $src (run install.sh from inside the xpdt repo)"
   mkdir -p "$HOME/.config"
   if [ -L "$target" ]; then
+    # Settings live in whatever directory the symlink points at, so when that is a
+    # different clone from this one they have to be brought across before relinking.
+    prev=$(readlink "$target" 2>/dev/null || true)
+    case "$prev" in /*) carry_user_state "$prev" "$src" ;; esac
     relink "$src" "$target"
   elif [ -e "$target" ]; then
     bak="$target.bak.$(date +%Y%m%d%H%M%S)"
     warn "backing up existing $target -> $bak"; mv "$target" "$bak"; ln -s "$src" "$target"
+    carry_user_state "$bak" "$src"
   else
     ln -s "$src" "$target"
   fi
@@ -301,25 +327,23 @@ XPDT_LAUNCHER
   info "xpdt -> $BIN_DIR/xpdt  (launches: xplr -c ~/.config/xpdt/init.lua)"
 }
 
-# Seed the confirmation-gate config so the 2-digit confirm is on for every action
-# by default after install. Never overwrite an existing one - it holds the user's
-# per-action choices. (gate.sh also treats an absent file/key as on, so this is
-# belt-and-braces: it just makes the defaults explicit for the settings menu.)
+# Seed the settings file so the 2-digit confirm is on for every action by default
+# after install. Never overwrite an existing one - it holds the user's choices, and
+# link_config has already carried it over from a previous install by this point.
+# (gate.sh also treats an absent file/key as on, so this is belt-and-braces: it just
+# makes the defaults explicit for the settings menu.)
+#
+# The default set itself lives in gate.sh (`gate.sh defaults`), which is also what
+# the menu's "reset to defaults" row restores - one definition, so the installer and
+# the reset can never drift apart.
 seed_gate_config() {
   cfg="$HOME/.config/xpdt/.gate-config"
-  if [ -e "$cfg" ]; then info "confirm-gate config present ($cfg)"; return 0; fi
-  if {
-    echo "enabled=1"
-    echo "show-hidden=1"
-    echo "claude-integration=0"
-    echo "theme=monokai"
-    for k in create move delete stage hunk discard commit undo cherry-pick \
-      stash-apply stash-pop stash-drop stash-new stash-clear checkout pull; do
-      echo "$k=1"
-    done
-  } > "$cfg" 2>/dev/null; then
-    info "seeded confirm-gate config (all actions on) -> $cfg"
+  if [ -e "$cfg" ]; then info "kept existing settings ($cfg)"; return 0; fi
+  tmp="$cfg.new.$$"
+  if sh "$REPO_DIR/xpdt/gate.sh" defaults > "$tmp" 2>/dev/null && [ -s "$tmp" ] && mv "$tmp" "$cfg"; then
+    info "seeded default settings (all confirmations on) -> $cfg"
   else
+    rm -f "$tmp" 2>/dev/null
     warn "could not seed $cfg (the 2-digit confirm is still on by default)"
   fi
 }

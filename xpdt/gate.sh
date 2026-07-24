@@ -83,9 +83,22 @@ get() { # get KEY -> 1 (on) or 0 (off), or for `theme` the theme name (default m
   esac
 }
 
-ensure_cfg() { # materialise an all-on config the first time one is needed
+# The factory settings, in one place: the installer seeds these into a fresh
+# .gate-config (`gate.sh defaults`) and the menu's "reset to defaults" row restores
+# exactly these, so the two can never drift apart. The nvim-* and lsp-* keys are
+# deliberately absent - get() defaults them off, so leaving them out IS the default,
+# and rewriting this file is what clears any the user had turned on.
+defaults() {
+  echo "enabled=1"
+  echo "show-hidden=1"
+  echo "claude-integration=0"
+  echo "theme=monokai"
+  action_rows | while IFS='|' read -r k _; do echo "$k=1"; done
+}
+
+ensure_cfg() { # materialise a defaults config the first time one is needed
   [ -f "$CFG" ] && return
-  { echo "enabled=1"; action_rows | while IFS='|' read -r k _; do echo "$k=1"; done; } > "$CFG" 2>/dev/null
+  defaults > "$CFG" 2>/dev/null
 }
 
 toggle() { # toggle KEY (use __master__ for the master switch)
@@ -102,6 +115,40 @@ toggle() { # toggle KEY (use __master__ for the master switch)
 
 required() { # exit 0 if ACTION needs the code (master on AND this action on)
   [ "$(get enabled)" = 1 ] && [ "$(get "$1")" = 1 ]
+}
+
+# Prompt for the 2-digit code. Returns 0 only on an exact match, and fails closed if
+# there is no tty or the code comes out malformed. Used by `confirm` (when the action
+# is gated) and unconditionally by `reset`. It RETURNS rather than exits, so a caller
+# can do work after a successful confirm.
+do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
+  msg="$1"
+  # Clear first so repeated prompts (and any "Cancelled." messages) show once on
+  # a clean screen instead of stacking up on the normal screen across presses.
+  # \033[?25h re-shows the cursor (fzf/xplr hide it and do not restore it for the
+  # read), so there is a visible caret while typing.
+  printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
+  # fzf runs execute() binds with the tty still in raw mode (and restores it
+  # inconsistently), which makes the prompt render oddly and Enter arrive as a
+  # bare CR that `read` never treats as end-of-line (it shows as ^M). Force the
+  # tty back to a sane cooked mode so the prompt reads normally; fzf re-applies
+  # its own mode when the bind returns.
+  stty sane < /dev/tty 2>/dev/null
+  # A 2-digit confirm code, generated with awk (a single BEGIN print) rather than
+  # python - no ~16ms python spawn on the confirm path. srand() seeds from the clock,
+  # which is plenty for a gate whose job is to stop an accidental keypress or a pasted
+  # burst, not to be a secret. (An earlier /dev/urandom + od version emitted a second
+  # line under macOS's BSD od, so the "code" became two numbers that could never be
+  # typed and the gate always cancelled - hence awk only, which is single-line on
+  # every awk.)
+  c=$(awk 'BEGIN { srand(); print int(10 + rand() * 90) }')
+  # Fail closed if that somehow did not produce exactly two digits (never confirm blind).
+  case "$c" in [1-9][0-9]) ;; *) printf 'Cancelled.\n' > /dev/tty; return 1 ;; esac
+  { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
+  python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
+  IFS= read -r a < /dev/tty || { printf '\n' > /dev/tty; return 1; }
+  [ "$a" = "$c" ] && return 0
+  printf 'Cancelled.\n' > /dev/tty; sleep 0.5; return 1
 }
 
 box() { [ "$1" = 1 ] && printf '\033[32m[x]\033[0m' || printf '\033[90m[ ]\033[0m'; }
@@ -124,35 +171,28 @@ case "${1:-}" in
     fi
     ;;
   required) required "$2" ;;
+  defaults) defaults ;;
+  reset)
+    # Reset ALWAYS asks for the code, whatever the gate settings say - unlike every
+    # other action it has no per-action toggle and ignores the master switch. It is
+    # destructive, not undoable, and it wipes the very toggles that would otherwise
+    # govern it, so "master switch off" must not turn it into a single keypress.
+    do_confirm "Reset ALL xpdt settings to their defaults?
+This clears the gate toggles, the theme, the Neovim options and the
+intellisense languages. Your search scope is left alone." || exit 1
+    tmp="$CFG.$$"
+    if defaults > "$tmp" 2>/dev/null && mv "$tmp" "$CFG"; then
+      printf 'Settings reset to defaults. Relaunch xpdt for the theme and hidden-files change to apply.\n' > /dev/tty
+    else
+      rm -f "$tmp" 2>/dev/null
+      printf 'Reset failed - settings unchanged.\n' > /dev/tty
+    fi
+    sleep 1.4
+    ;;
   confirm)
     action="$2"; msg="$3"
     required "$action" || exit 0
-    # Clear first so repeated prompts (and any "Cancelled." messages) show once on
-    # a clean screen instead of stacking up on the normal screen across presses.
-    # \033[?25h re-shows the cursor (fzf/xplr hide it and do not restore it for the
-    # read), so there is a visible caret while typing.
-    printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
-    # fzf runs execute() binds with the tty still in raw mode (and restores it
-    # inconsistently), which makes the prompt render oddly and Enter arrive as a
-    # bare CR that `read` never treats as end-of-line (it shows as ^M). Force the
-    # tty back to a sane cooked mode so the prompt reads normally; fzf re-applies
-    # its own mode when the bind returns.
-    stty sane < /dev/tty 2>/dev/null
-    # A 2-digit confirm code, generated with awk (a single BEGIN print) rather than
-    # python - no ~16ms python spawn on the confirm path. srand() seeds from the clock,
-    # which is plenty for a gate whose job is to stop an accidental keypress or a pasted
-    # burst, not to be a secret. (An earlier /dev/urandom + od version emitted a second
-    # line under macOS's BSD od, so the "code" became two numbers that could never be
-    # typed and the gate always cancelled - hence awk only, which is single-line on
-    # every awk.)
-    c=$(awk 'BEGIN { srand(); print int(10 + rand() * 90) }')
-    # Fail closed if that somehow did not produce exactly two digits (never confirm blind).
-    case "$c" in [1-9][0-9]) ;; *) printf 'Cancelled.\n' > /dev/tty; exit 1 ;; esac
-    { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
-    python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
-    IFS= read -r a < /dev/tty || { printf '\n' > /dev/tty; exit 1; }
-    [ "$a" = "$c" ] && exit 0
-    printf 'Cancelled.\n' > /dev/tty; sleep 0.5; exit 1
+    do_confirm "$msg"
     ;;
   menu)
     # Rows are "key  checkbox  label"; field 1 (the key) is hidden by fzf's
@@ -203,6 +243,12 @@ case "${1:-}" in
         printf '%s \033[90m%s   %s\033[0m\n' "$k" "$([ "$v" = 1 ] && printf '[x]' || printf '[ ]')" "$label"
       fi
     done
+
+    gap
+    hdr 'RESET'
+    # An action, not a toggle, so it gets no checkbox - and it always asks for the
+    # code regardless of the master switch above (see the `reset` case).
+    printf '__reset__ \033[38;5;203m[!]\033[0m   Reset all settings to their defaults (always asks for the code)\n'
     ;;
-  *) echo "usage: gate.sh {get|toggle|settheme|required|confirm|menu} ..." >&2; exit 2 ;;
+  *) echo "usage: gate.sh {get|toggle|settheme|required|confirm|defaults|reset|menu} ..." >&2; exit 2 ;;
 esac
