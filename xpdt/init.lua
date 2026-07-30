@@ -676,14 +676,12 @@ xplr.fn.custom.render_git_graph = function(ctx)
       bh:close()
     end
     local ab = ""
-    local has_upstream = false
     local abh = io.popen(gitc .. 'rev-list --left-right --count "@{u}...HEAD" 2>/dev/null')
     if abh then
       local counts = abh:read("*a"):gsub("%s+$", "")
       abh:close()
       local behind, ahead = counts:match("^(%d+)%s+(%d+)$")
       if ahead and behind then
-        has_upstream = true
         local parts = {}
         if tonumber(ahead) > 0 then
           parts[#parts + 1] = "↑" .. ahead
@@ -696,12 +694,24 @@ xplr.fn.custom.render_git_graph = function(ctx)
         end
       end
     end
-    -- Commits ahead of the upstream are local (not yet pushed): mark them with a
-    -- hollow yellow dot, and pushed commits with the usual filled dot. With no
-    -- upstream we cannot tell, so every commit keeps the plain filled dot.
+    -- A commit not reachable from ANY remote-tracking branch is local / not yet
+    -- pushed: mark it with a hollow yellow dot, pushed commits with the filled dot.
+    -- This uses `--not --remotes` rather than `@{u}..HEAD`, so it does NOT need an
+    -- upstream to be configured - a fresh `checkout -b` you have not pushed yet still
+    -- shows its commits as local here, matching the `;` history browser
+    -- (git-log-list.sh), which was already doing it this way. (The ahead/behind title
+    -- counts above still use @{u}, since ahead/behind is only meaningful against the
+    -- tracked branch.) Gated on at least one remote ref existing; with no remotes we
+    -- cannot tell what is pushed, so every commit keeps the plain filled dot.
     local unpushed = {}
-    if has_upstream then
-      local uh = io.popen(gitc .. 'rev-list "@{u}..HEAD" 2>/dev/null')
+    local has_remotes = false
+    local rh = io.popen(gitc .. "rev-list --remotes -n1 2>/dev/null")
+    if rh then
+      has_remotes = rh:read("*a"):gsub("%s+$", "") ~= ""
+      rh:close()
+    end
+    if has_remotes then
+      local uh = io.popen(gitc .. "rev-list HEAD --not --remotes 2>/dev/null")
       if uh then
         for sha in uh:lines() do
           unpushed[sha] = true
