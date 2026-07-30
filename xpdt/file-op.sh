@@ -15,13 +15,25 @@ X="$HOME/.config/xpdt"
 GATE="$X/gate.sh"
 flush() { python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' 2>/dev/null; }
 
+# Prompt for a line WITH line editing (arrows / backspace / ctrl-a/e), via
+# prompt-prefill.py's python readline. A bare `read` has none, so arrow keys arrive
+# as their raw escape bytes (^[[D, ^[[B, ...) and print into the name instead of
+# moving the cursor; bash's `read -e` would work but is unavailable on macOS's bash
+# 3.2. Prints the prompt and the typed result to a temp file so neither leaks into
+# the captured value. Empty result = cancel, unchanged. Usage: NAME=$(prompt 'label')
+prompt() {
+  pf=$(mktemp)
+  python3 -S "$X/prompt-prefill.py" "" "$pf" "$1" < /dev/tty > /dev/tty 2>&1
+  cat "$pf" 2>/dev/null
+  rm -f "$pf"
+}
+
 # Clear leftover output and re-show the cursor (xplr hides it) so a prompt is typed on
 # a clean screen with a visible caret.
 printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
 case "$OP" in
   newfile)
-    printf 'New file name (empty cancels): '
-    flush; read -r NAME
+    flush; NAME=$(prompt 'New file name (empty cancels): ')
     [ -z "$NAME" ] && { printf 'Cancelled.\n'; sleep 0.5; exit 0; }
     T="$DIR/$NAME"
     [ -e "$T" ] && { printf 'Already exists: %s\n' "$NAME"; sleep 0.7; exit 0; }
@@ -30,8 +42,7 @@ case "$OP" in
     fi
     ;;
   newfolder)
-    printf 'New folder name (empty cancels): '
-    flush; read -r NAME
+    flush; NAME=$(prompt 'New folder name (empty cancels): ')
     [ -z "$NAME" ] && { printf 'Cancelled.\n'; sleep 0.5; exit 0; }
     T="$DIR/$NAME"
     [ -e "$T" ] && { printf 'Already exists: %s\n' "$NAME"; sleep 0.7; exit 0; }

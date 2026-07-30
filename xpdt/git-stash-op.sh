@@ -5,7 +5,8 @@
 # by default, per-action toggleable via the `,` settings menu).
 ROOT="$1"; OP="$2"; REF="$3"
 [ -z "$ROOT" ] && exit 0
-GATE="$HOME/.config/xpdt/gate.sh"
+X="$HOME/.config/xpdt"
+GATE="$X/gate.sh"
 pause() { printf '\n[enter to continue] ' > /dev/tty; read -r _ < /dev/tty; }
 
 # Clear the normal screen first, so transient messages (e.g. "Nothing to stash")
@@ -22,8 +23,17 @@ case "$OP" in
     fi
     sh "$GATE" confirm stash-new "Stash all working-tree changes (including untracked)?" || exit 0
     python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
-    printf 'Stash message (optional, enter to skip): ' > /dev/tty
-    read -r msg < /dev/tty || exit 0
+    # Read the message through prompt-prefill.py (python readline), not a bare `read`.
+    # A bare `read` has no line editing, so arrow keys arrive as their raw escape
+    # bytes (^[[D, ^[[B, ...) and print into the message instead of moving the cursor.
+    # readline gives arrows / backspace / ctrl-a/e, and is portable where bash's
+    # `read -e` is not (macOS ships bash 3.2). Empty (or ctrl-c/ctrl-d) = no message,
+    # which is exactly the "enter to skip" path. The result goes to a temp file so the
+    # prompt text cannot leak into it.
+    MSGF=$(mktemp)
+    trap 'rm -f "$MSGF"' EXIT INT TERM
+    python3 -S "$X/prompt-prefill.py" "" "$MSGF" 'Stash message (optional, enter to skip): ' < /dev/tty > /dev/tty 2>&1
+    msg=$(cat "$MSGF" 2>/dev/null); rm -f "$MSGF"; trap - EXIT INT TERM
     if [ -n "$msg" ]; then
       git -C "$ROOT" stash push --include-untracked -m "$msg" > /dev/tty 2>&1
     else
