@@ -31,7 +31,15 @@ case "$CHOICE" in
       pause
       exit 0
     fi
-    BR=$({ git -C "$ROOT" branch --format='%(refname:short)'; git -C "$ROOT" branch -r --format='%(refname:short)' | grep -v '/HEAD$' | sed 's#^[^/]*/##'; } | sort -u \
+    # Sorted with git's OWN version sort, descending, so the largest numbers are at the
+    # top (feature-10 above feature-9, v1.10.0 above v1.9.0) and multi-digit numbers
+    # order correctly - a plain reverse sort would put 9 above 10. git does the sort, so
+    # this does not rely on `sort -V`, which BSD/macOS `sort` may not have. Locals first,
+    # then remote-only branches; `awk !seen` dedupes while preserving that order (it
+    # replaces the old `sort -u`, which sorted ascending and lexically).
+    BR=$({ git -C "$ROOT" branch --format='%(refname:short)' --sort=-version:refname
+           git -C "$ROOT" branch -r --format='%(refname:short)' --sort=-version:refname | grep -v '/HEAD$' | sed 's#^[^/]*/##'
+         } | awk '!seen[$0]++' \
       | fzf --height=60% --reverse --prompt='checkout > ' --header='pick a branch' --bind 'enter:accept,right:accept,left:abort')
     [ -z "$BR" ] && exit 0
     sh "$GATE" confirm checkout "Checkout branch: $BR" || exit 0
