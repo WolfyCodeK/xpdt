@@ -10,14 +10,21 @@
 # A one-hunk patch = the file header (the lines before the first @@) plus the one
 # @@ block; extracted from the live diff each time, so sequential hunk ops stay
 # valid as line numbers shift.
+#
+# The diff is taken at ZERO context (-U0). git's default 3 lines of context merge
+# any two changes closer than ~7 lines into a single hunk, which made staging too
+# coarse - a change you did not want went in with one you did. At -U0 each run of
+# CONTIGUOUS changed lines is its own hunk, so two changes with even one unchanged
+# line between them split apart. Applying a zero-context patch needs --unidiff-zero
+# (git's default apply refuses a diff with no context), added to both apply paths.
 MODE="$1"; ROOT="$2"; GROUP="$3"; FILE="$4"; INDEX="$5"
 if [ -z "$ROOT" ] || [ -z "$FILE" ]; then exit 0; fi
 
 src() {
   if [ "$GROUP" = staged ]; then
-    git -C "$ROOT" diff --cached -- "$FILE"
+    git -C "$ROOT" diff -U0 --cached -- "$FILE"
   else
-    git -C "$ROOT" diff -- "$FILE"
+    git -C "$ROOT" diff -U0 -- "$FILE"
   fi
 }
 
@@ -42,7 +49,7 @@ case "$MODE" in
     [ -z "$INDEX" ] && exit 0
     if [ "$GROUP" = staged ]; then verb=Unstage; rev=--reverse; else verb=Stage; rev=; fi
     sh "$HOME/.config/xpdt/gate.sh" confirm hunk "$verb hunk $INDEX of $FILE?" || exit 0
-    if src | extract_patch "$INDEX" | git -C "$ROOT" apply --cached $rev --whitespace=nowarn - 2>/dev/null; then
+    if src | extract_patch "$INDEX" | git -C "$ROOT" apply --cached --unidiff-zero $rev --whitespace=nowarn - 2>/dev/null; then
       :
     else
       printf 'Could not %s that hunk (try the whole file with s).\n' \
@@ -59,7 +66,7 @@ case "$MODE" in
     fi
     sh "$HOME/.config/xpdt/gate.sh" confirm discard "Discard hunk $INDEX of $FILE? (removes it from the working tree)" || exit 0
     # --reverse without --cached reverts the hunk in the working tree.
-    if src | extract_patch "$INDEX" | git -C "$ROOT" apply --reverse --whitespace=nowarn - 2>/dev/null; then
+    if src | extract_patch "$INDEX" | git -C "$ROOT" apply --reverse --unidiff-zero --whitespace=nowarn - 2>/dev/null; then
       :
     else
       printf 'Could not discard that hunk.\n' > /dev/tty
