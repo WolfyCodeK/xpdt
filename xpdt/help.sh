@@ -21,6 +21,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "/" "find files by name"
   row "\\" "search inside files"
   row "g" "git menu (status / fetch / checkout / pull)"
+  row "c" "claude sessions, full screen (needs the setting in ,)"
   row "," "settings (theme, intellisense, previews, confirmations)"
   row "h" "this help"
   row "ctrl-h" "neovim cheat sheet"

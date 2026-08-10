@@ -15,28 +15,42 @@
 # (ai-title), current task (last-prompt), cwd, branch, model, token usage (-> a
 # rough context %), the newest user/assistant event (-> working/waiting/idle) and
 # recency. The repo is the git top-level of the session's main cwd.
-ROOT="$1"
+# Args: ROOT [full]
+#   (default) the compact one-per-line list for the small `claude` box in the layout:
+#             capped at MAX_ROWS, names truncated to the panel width, a task line for
+#             the top couple of working sessions only, sessions active in the last 3h.
+#   full      the expanded list for the `c` full-screen window (claude-window.sh):
+#             every session, nothing capped, titles and task text wrapped instead of
+#             truncated, metadata on its own line, and a 7-day window. Same scan and
+#             same parse either way - one implementation, so the box and the window
+#             can never disagree about a session's state.
+ROOT="$1"; MODE="$2"
 grep -q '^claude-integration=1$' "$HOME/.config/xpdt/.gate-config" 2>/dev/null || exit 0
 PROJ="$HOME/.claude/projects"
 [ -d "$PROJ" ] || exit 0
-SHOWN_MIN=180 # list sessions active within this many minutes
+if [ "$MODE" = full ]; then
+  FULL=1; SHOWN_MIN=10080   # 7 days: the window is "recent work", not just "right now"
+else
+  FULL=0; SHOWN_MIN=180     # 3 hours: the box is a live at-a-glance indicator
+fi
 
 # Terminal width, so a session name truncates at the window edge rather than a fixed
 # cap. Invoked via io.popen at render time (stdout is a pipe, not a tty), so read the
 # size from the controlling terminal directly.
-COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
+COLS=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
 [ -z "$COLS" ] && COLS=100
 
 find "$PROJ" -type f -name '*.jsonl' -not -path '*/subagents/*' -mmin "-$SHOWN_MIN" 2>/dev/null \
-  | ROOT="$ROOT" COLS="$COLS" python3 -S -c '
+  | ROOT="$ROOT" COLS="$COLS" FULL="$FULL" WINMIN="$SHOWN_MIN" python3 -S -c '
 import sys, os, json, time, subprocess
 
 root = os.environ.get("ROOT", "").rstrip("/")
 now = time.time()
 ACTIVE = 90         # "working now" freshness
 WAIT = 30 * 60      # a finished turn newer than this = "waiting on you"
-MAX_ROWS = 6        # cap sessions shown; the rest collapse into "+N more"
+FULL = os.environ.get("FULL") == "1"
+MAX_ROWS = 10 ** 6 if FULL else 6   # box caps and shows "+N more"; the window shows all
 TAIL = 262144
 HEAD = 65536
 DONE = ("end_turn", "stop_sequence")
@@ -52,7 +66,30 @@ RED = "\033[38;5;203m"   # near-full context
 Z = "\033[0m"
 
 COLS = int(os.environ.get("COLS") or 100)
-INNER = max(24, COLS - 4)  # claude panel content width (allow for borders/padding)
+# Box: the panel is full width less its borders. Window: popup.sh floats the fzf box
+# with margin 3%,6% and padding 0,1, so the usable content is narrower.
+INNER = max(24, int(COLS * 0.88) - 8) if FULL else max(24, COLS - 4)
+
+
+def wrap(s, width, indent):
+    """Word-wrap to width with a hanging indent, so a long title or prompt stays
+    readable in the window instead of being cut off at the edge (the box truncates
+    instead - it only has one line per session)."""
+    width = max(20, width)
+    words, lines, cur = s.split(), [], ""
+    for w in words:
+        cand = w if not cur else cur + " " + w
+        if len(cand) <= width:
+            cur = cand
+        else:
+            if cur:
+                lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    if not lines:
+        return []
+    return [lines[0]] + [indent + l for l in lines[1:]]
 
 def truncate(s, width):
     width = max(4, width)
@@ -203,6 +240,8 @@ for repo, rs in sorted(groups.items(), key=group_key):
     active = [r for r in rs if r["status"] in ("working", "waiting")]
     if len(active) > 1 and len({r["branch"] for r in active}) == 1:
         head += "  " + WARN + str(len(active)) + " on this branch" + Z
+    if FULL and out:
+        out.append("")
     out.append(head)
     for r in rs:
         if r["status"] == "working":
@@ -224,15 +263,27 @@ for repo, rs in sorted(groups.items(), key=group_key):
         if r["model"] and r["model"] not in ("opus",):
             meta_plain.append(r["model"])
             meta_col.append(FNT + r["model"] + Z)
-        meta_w = len(" ".join(meta_plain)) + 2  # + the "  " gap before the metadata
-        name = truncate(r["name"], INNER - 4 - meta_w)  # 4 = "  " + dot + " "
-        line = "  " + dot + Z + " " + col + name + Z
-        if meta_col:
-            line += "  " + " ".join(meta_col)
-        out.append(line)
-        if r["status"] == "working" and r["task"] and tasks_left > 0:
-            tasks_left -= 1
-            out.append("    " + FNT + truncate(r["task"], INNER - 4) + Z)
+        if FULL:
+            # The window has room: give the title the whole line (wrapped, never cut),
+            # put the metadata underneath, and show the current task for EVERY session
+            # that has one rather than just the top couple.
+            for i, seg in enumerate(wrap(r["name"], INNER - 4, "    ")):
+                out.append(("  " + dot + Z + " " if i == 0 else "") + col + seg + Z)
+            if meta_col:
+                out.append("      " + " ".join(meta_col))
+            if r["task"]:
+                for i, seg in enumerate(wrap(r["task"], INNER - 8, "  ")):
+                    out.append("      " + FNT + (("> " + seg) if i == 0 else seg) + Z)
+        else:
+            meta_w = len(" ".join(meta_plain)) + 2  # + the "  " gap before the metadata
+            name = truncate(r["name"], INNER - 4 - meta_w)  # 4 = "  " + dot + " "
+            line = "  " + dot + Z + " " + col + name + Z
+            if meta_col:
+                line += "  " + " ".join(meta_col)
+            out.append(line)
+            if r["status"] == "working" and r["task"] and tasks_left > 0:
+                tasks_left -= 1
+                out.append("    " + FNT + truncate(r["task"], INNER - 4) + Z)
 
 nw = sum(1 for r in rows if r["status"] == "working")
 nq = sum(1 for r in rows if r["status"] == "waiting")
@@ -242,6 +293,11 @@ if nw: summary.append(GRN + str(nw) + " working" + Z)
 if nq: summary.append(AMB + str(nq) + " waiting" + Z)
 if ni: summary.append(DIM + str(ni) + " idle" + Z)
 foot = FNT + " · ".join(s for s in summary) if summary else ""
+if FULL:
+    days = max(1, int(os.environ.get("WINMIN", "10080")) // 1440)
+    foot = (foot + FNT + "   (last " + str(days) + " days)" + Z) if foot else ""
+    if foot:
+        foot = "\n" + foot
 if extra > 0:
     foot = (foot + FNT + "   +" + str(extra) + " more" + Z) if foot else FNT + "+" + str(extra) + " more" + Z
 if foot:
