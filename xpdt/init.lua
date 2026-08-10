@@ -111,6 +111,16 @@ xplr.config.modes.builtin.default.key_bindings.on_key["h"] = {
   }
 }
 
+-- The full-screen Claude session window. Bound unconditionally; claude-window.sh
+-- checks the claude-integration setting itself and says so when it is off, which is
+-- friendlier than a dead key and needs no relaunch after toggling the setting.
+xplr.config.modes.builtin.default.key_bindings.on_key["c"] = {
+  help = "claude sessions (when enabled)",
+  messages = {
+    { BashExec = "sh \"$HOME/.config/xpdt/claude-window.sh\"" },
+  }
+}
+
 xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-h"] = {
   help = "neovim cheat sheet",
   messages = {
