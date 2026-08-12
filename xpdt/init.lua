@@ -175,6 +175,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
           --bind "change:reload:sleep 0.1; $GEN" \
           --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { : > "$XPDT_LEFT_EXIT"; echo abort; }' \
           --bind 'right:accept' \
+          --bind "ctrl-o:execute(sh \"$X/reveal.sh\" \"\$(sh \"$X/resolve.sh\" {})\")" \
           --bind 'enter:ignore')
         if [ -n "$FILE" ]; then
           FULL=$(sh "$X/resolve.sh" "$FILE")
@@ -219,6 +220,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["\\"] = {
           --bind "tab:execute-silent(sh \"$X/scope.sh\" toggle)+transform-header(sh \"$X/scope.sh\" header)+reload:$GENQ {q}" \
           --bind 'left:transform:[ -n {q} ] && echo backward-delete-char || { : > "$XPDT_LEFT_EXIT"; echo abort; }' \
           --bind "right:execute(XPLR_FOCUS_PATH=\"\$(sh \"$X/resolve.sh\" {1})\" XPLR_PREVIEW_LINE={2} sh \"$X/open-or-preview.sh\")" \
+          --bind "ctrl-o:execute(sh \"$X/reveal.sh\" \"\$(sh \"$X/resolve.sh\" {1})\")" \
           --bind 'enter:ignore' \
           --delimiter : \
           --preview "F=\$(sh \"$X/resolve.sh\" {1}); bat --style=numbers --color=always --highlight-line {2} \"\$F\" 2>/dev/null || cat -n \"\$F\"" \

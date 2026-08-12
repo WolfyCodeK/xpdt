@@ -12,10 +12,14 @@ case "$ACTION" in
     if [ "$cur" = root ]; then echo here > "$FILE"; else echo root > "$FILE"; fi
     ;;
   header)
+    # Wrapped through wrap-header.sh (like git-log-header.sh) because fzf truncates a
+    # long header rather than wrapping it, and these lines no longer fit a narrow
+    # terminal on one row.
     if [ "$cur" = root ]; then
-      printf 'scope: whole tree from launch dir      [tab] switch to current dir      [→] open      [←] cancel'
+      HDR='scope: whole tree from launch dir      [tab] switch to current dir      [→] open      [ctrl-o] file manager      [←] cancel'
     else
-      printf 'scope: current dir      [tab] switch to whole tree from launch dir      [→] open      [←] cancel'
+      HDR='scope: current dir      [tab] switch to whole tree from launch dir      [→] open      [ctrl-o] file manager      [←] cancel'
     fi
+    sh "$HOME/.config/xpdt/wrap-header.sh" "$HDR"
     ;;
 esac

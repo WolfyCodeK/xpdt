@@ -79,6 +79,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "tab" "toggle scope (here / whole tree)"
   row "left" "delete back through the query; exit when it is empty"
   row "right" "open a file (\\: at the matched line), or enter a folder (/)"
+  row "ctrl-o" "reveal the file in the OS file manager (Finder / Explorer)"
   sec "SETTINGS  (,)"
   row "enter" "toggle a setting, or pick the focused theme"
   row "" "- the RESET row at the bottom restores every default"

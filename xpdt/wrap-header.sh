@@ -8,7 +8,9 @@
 # Pure awk (no python): this runs on every browser/menu open, and a python spawn
 # there cost ~25ms of startup just to wrap a line of text. awk does it in ~4ms.
 COLS="$2"
-[ -z "$COLS" ] && COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
+# Braced so stderr is already /dev/null when the >/dev/tty redirect is attempted;
+# otherwise the shell reports a failed redirect with no controlling tty.
+[ -z "$COLS" ] && COLS=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
 [ -z "$COLS" ] && COLS=80
 # A probe character (U+2192, the → in every header) supplied as a byte string, so the
