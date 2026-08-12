@@ -16,7 +16,7 @@
 X="$HOME/.config/xpdt"
 
 if [ "$(sh "$X/gate.sh" get claude-integration)" != 1 ]; then
-  printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+  { printf '\033[2J\033[H' > /dev/tty; } 2>/dev/null
   printf '\n  The Claude session list is off.\n' > /dev/tty
   printf '  Turn on "Claude session list" in the , settings menu (GENERAL).\n' > /dev/tty
   sleep 2
@@ -30,7 +30,7 @@ ROOT="$(sh "$X/repo-root.sh" "$PWD")"
 
 BODY=$(sh "$X/claude-status.sh" "$ROOT" full)
 if [ -z "$BODY" ]; then
-  printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+  { printf '\033[2J\033[H' > /dev/tty; } 2>/dev/null
   printf '\n  No Claude Code sessions in the last 7 days.\n' > /dev/tty
   sleep 1.6
   exit 0
