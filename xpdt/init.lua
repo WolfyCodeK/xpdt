@@ -299,17 +299,17 @@ xplr.config.general.table.header.style = { fg = "DarkGray", add_modifiers = { "B
 
 local git_author_cache = {}
 local git_author_dir_done = {}
-local git_status_cache = {}
+local git_state_cache = {}
 local repo_root_cache = {}
-local git_log_cache = {}
 local claude_cache = {}
 
--- Git state is repo-wide and now cached across directory navigation (it is dropped
+-- Git state is repo-wide and cached across directory navigation (it is dropped
 -- explicitly by invalidate_git after an xpdt action, not on every directory change).
--- These TTLs are the backstop for changes made OUTSIDE xpdt (e.g. edits in another
+-- GIT_TTL is the backstop for changes made OUTSIDE xpdt (e.g. edits in another
 -- terminal): the panels catch up within this many seconds even without an action.
-local STATUS_TTL = 10
-local GIT_LOG_TTL = 10
+-- Reaching the TTL no longer costs a frame - it only schedules a background refresh,
+-- so the panels go a little stale rather than the whole app going unresponsive.
+local GIT_TTL = 10
 local CLAUDE_TTL = 5
 local xplrignore_active = false
 
@@ -344,6 +344,70 @@ local function regex_escape(s)
   return escaped
 end
 
+-- Where git-state.sh leaves this repo's state. The path is derived here, in Lua, and
+-- handed to the script as an argument, so the two sides never have to agree on a hash
+-- implementation - Lua names the file, the script writes where it is told. It lives
+-- under the cache dir and not in ~/.config/xpdt because that directory is a symlink
+-- INTO the xpdt repo, where cache files would surface as untracked changes.
+local state_dir = (os.getenv("XDG_CACHE_HOME") or ((os.getenv("HOME") or "") .. "/.cache")) .. "/xpdt"
+
+local function state_base(root)
+  local h = 5381
+  for i = 1, #root do
+    h = (h * 33 + root:byte(i)) % 4294967296
+  end
+  local name = root:match("([^/]+)$") or "root"
+  name = name:gsub("[^%w%-_.]", "_")
+  return state_dir .. "/git-" .. name .. "-" .. string.format("%08x", math.floor(h))
+end
+
+local function refresh_cmd(root)
+  return 'sh "$HOME/.config/xpdt/git-state.sh" ' .. shq(root) .. " " .. shq(state_base(root))
+end
+
+local refresh_requested = {}
+
+-- Start a refresh and do NOT wait for it. This is what keeps git off the render path:
+-- the trailing & makes the shell fork the job and exit, so closing the handle waits
+-- only for that short-lived sh, never for git. The redirections matter - without them
+-- the detached job keeps the pipe open and the close blocks on it, which would put the
+-- stall straight back.
+local function request_refresh(root)
+  local now = now_secs()
+  local last = refresh_requested[root]
+  if last and (now - last) < 2 then
+    return
+  end
+  refresh_requested[root] = now
+  local h = io.popen(refresh_cmd(root) .. " >/dev/null 2>&1 &")
+  if h then
+    h:close()
+  end
+end
+
+-- Refresh and wait. Only for the two moments where a stale frame would be wrong
+-- rather than merely late: the first sighting of a repo (the alternative is painting
+-- an empty panel) and immediately after an xpdt action changed git state. Never
+-- called from a render that already has something to draw.
+local function refresh_blocking(root)
+  local h = io.popen(refresh_cmd(root) .. " >/dev/null 2>&1")
+  if h then
+    h:read("*a")
+    h:close()
+  end
+  refresh_requested[root] = now_secs()
+end
+
+local function read_file(path)
+  local f = io.open(path, "rb")
+  if not f then
+    return nil
+  end
+  local data = f:read("*a")
+  f:close()
+  return data
+end
+
 -- Resolve the git repo root for a directory. Uses repo-root.sh rather than a bare
 -- `git -C ... rev-parse` so a symlinked location keeps the git context of the real
 -- directory the symlink lives in (where you entered it from), instead of jumping to
@@ -364,28 +428,13 @@ local function repo_root_of(dir)
   return root
 end
 
-local function git_status(root)
-  local cached = git_status_cache[root]
-  local now = now_secs()
-  if cached and (now - cached.time) < STATUS_TTL then
-    return cached
-  end
+-- Parse one `git status --porcelain --ignored -z` blob. Split out of the old inline
+-- git call so the exact same record walk now runs over bytes read from the cache file.
+local function parse_status_blob(root, out)
   local dirty = {}
   local entries = {} -- { x = , y = , path = } per changed path, in git's order
   local ignored = {} -- exact ignored file paths
   local ignored_dirs = {} -- ignored directories (git collapses them; treated as prefixes)
-  -- --ignored adds `!!` rows for ignored paths (ignored dirs collapsed to one entry) so
-  -- the author column can flag them; they are kept out of `entries` / `dirty`, so the
-  -- changes box and the M column ignore them exactly as before.
-  --
-  -- -z is what makes non-ASCII and spaced filenames work: the default porcelain format
-  -- C-quotes any path containing a space or a byte >= 0x80 ("caf\303\251.txt"), and the
-  -- escaped string never matches the real file - so the M dot and the changes box
-  -- silently skipped those files. -z emits raw paths, NUL-separated. A rename/copy
-  -- record is followed by one extra record holding the ORIGINAL path, consumed by `skip`.
-  local handle = io.popen("git -C " .. shq(root) .. " status --porcelain --ignored -z 2>/dev/null")
-  local out = handle:read("*a") or ""
-  handle:close()
   local pos, skip = 1, false
   while true do
     local nul = out:find("\0", pos, true)
@@ -428,8 +477,122 @@ local function git_status(root)
       end
     end
   end
-  git_status_cache[root] = { time = now, dirty = dirty, entries = entries, ignored = ignored, ignored_dirs = ignored_dirs }
-  return git_status_cache[root]
+  return { dirty = dirty, entries = entries, ignored = ignored, ignored_dirs = ignored_dirs }
+end
+
+-- Parse the line-based half of the cache (branch, ahead/behind, the commit list).
+local function parse_meta_blob(data)
+  local branch, ab, lines = "", "", {}
+  local unpushed, has_remotes = {}, false
+  for line in data:gmatch("[^\n]+") do
+    local key, rest = line:match("^(%a+) ?(.*)$")
+    if key == "branch" then
+      branch = rest
+    elseif key == "ab" then
+      local behind, ahead = rest:match("^(%d+)%s+(%d+)$")
+      if ahead and behind then
+        local parts = {}
+        if tonumber(ahead) > 0 then
+          parts[#parts + 1] = "↑" .. ahead
+        end
+        if tonumber(behind) > 0 then
+          parts[#parts + 1] = "↓" .. behind
+        end
+        if #parts > 0 then
+          ab = " " .. table.concat(parts, " ")
+        end
+      end
+    elseif key == "remotes" then
+      has_remotes = rest == "1"
+    elseif key == "unpushed" then
+      unpushed[rest] = true
+    elseif key == "log" then
+      local sha, tail = rest:match("^(%x+)\t(.*)$")
+      if sha then
+        -- A commit not reachable from any remote-tracking branch is local: hollow
+        -- yellow dot. With no remotes at all we cannot tell, so everything stays filled.
+        local marker = (has_remotes and unpushed[sha]) and "\27[33m○\27[0m" or "●"
+        lines[#lines + 1] = marker .. " " .. tail:gsub("\t", "  ")
+      else
+        lines[#lines + 1] = rest
+      end
+    end
+  end
+  return branch, ab, lines
+end
+
+local EMPTY_STATE = {
+  ts = 0,
+  checked = -1,
+  dirty = {},
+  entries = {},
+  ignored = {},
+  ignored_dirs = {},
+  branch = "",
+  ab = "",
+  lines = {},
+}
+
+-- One snapshot of the repo's git state, read from the two files git-state.sh writes.
+-- Rendering never shells out: it reads files (no fork) and, when the snapshot is older
+-- than GIT_TTL, schedules a background refresh and draws what it already has. The
+-- previous version called git from inside the Dynamic render functions, so the first
+-- keypress after a TTL expiry had to wait for six git invocations before xplr could
+-- paint a frame - that was the stall on coming back to the window.
+--
+-- allow_blocking is set only by callers that must not paint a blank panel.
+local function load_state(root, allow_blocking)
+  local now = now_secs()
+  local cached = git_state_cache[root]
+  -- The per-row column functions ask for this once per visible row, so the files are
+  -- re-read at most once a second; within the same second the in-memory copy answers.
+  if cached and cached.checked == now then
+    return cached
+  end
+
+  local base = state_base(root)
+  local meta = read_file(base .. ".meta")
+  if meta == nil and allow_blocking and not cached then
+    refresh_blocking(root)
+    meta = read_file(base .. ".meta")
+  end
+
+  local ts = 0
+  if meta then
+    ts = tonumber(meta:match("^ts (%d+)")) or 0
+  end
+
+  local state = cached
+  if meta and (not cached or ts > cached.ts) then
+    -- .status is written first and .meta (which carries the timestamp) last, so a
+    -- torn read looks stale and simply refreshes again rather than showing nonsense.
+    local status = parse_status_blob(root, read_file(base .. ".status") or "")
+    local branch, ab, lines = parse_meta_blob(meta)
+    state = {
+      ts = ts,
+      dirty = status.dirty,
+      entries = status.entries,
+      ignored = status.ignored,
+      ignored_dirs = status.ignored_dirs,
+      branch = branch,
+      ab = ab,
+      lines = lines,
+    }
+  end
+
+  if not state then
+    return EMPTY_STATE
+  end
+  if (now - state.ts) >= GIT_TTL then
+    request_refresh(root)
+  end
+  state.checked = now
+  git_state_cache[root] = state
+  return state
+end
+
+local function git_status(root)
+  return load_state(root, true)
 end
 
 -- Is `path` git-ignored, per the cached status? True for an exactly-ignored file, or
@@ -560,11 +723,17 @@ end
 -- lag on a big repo. The caches now persist across navigation (see the TTLs) and are
 -- only dropped here, on an actual change.
 xplr.fn.custom.invalidate_git = function()
-  for key in pairs(git_status_cache) do
-    git_status_cache[key] = nil
+  -- Refresh synchronously here rather than leaving it to the next render: this runs
+  -- after an action the user just took (where a short pause is expected and was
+  -- already being paid), and it means the frame drawn straight afterwards shows the
+  -- new state instead of one stale frame. Navigation never reaches this path.
+  local roots = {}
+  for key in pairs(git_state_cache) do
+    roots[#roots + 1] = key
+    git_state_cache[key] = nil
   end
-  for key in pairs(git_log_cache) do
-    git_log_cache[key] = nil
+  for _, root in ipairs(roots) do
+    refresh_blocking(root)
   end
   for key in pairs(git_author_cache) do
     git_author_cache[key] = nil
@@ -677,77 +846,7 @@ xplr.fn.custom.render_git_graph = function(ctx)
   if not root then
     return { CustomList = { ui = { title = { format = " git history " } }, body = {} } }
   end
-  local now = now_secs()
-  local cached = git_log_cache[root]
-  if not (cached and (now - cached.time) < GIT_LOG_TTL) then
-    local gitc = "git -C " .. shq(root) .. " "
-    local branch = ""
-    local bh = io.popen(gitc .. "rev-parse --abbrev-ref HEAD 2>/dev/null")
-    if bh then
-      branch = bh:read("*a"):gsub("%s+$", "")
-      bh:close()
-    end
-    local ab = ""
-    local abh = io.popen(gitc .. 'rev-list --left-right --count "@{u}...HEAD" 2>/dev/null')
-    if abh then
-      local counts = abh:read("*a"):gsub("%s+$", "")
-      abh:close()
-      local behind, ahead = counts:match("^(%d+)%s+(%d+)$")
-      if ahead and behind then
-        local parts = {}
-        if tonumber(ahead) > 0 then
-          parts[#parts + 1] = "↑" .. ahead
-        end
-        if tonumber(behind) > 0 then
-          parts[#parts + 1] = "↓" .. behind
-        end
-        if #parts > 0 then
-          ab = " " .. table.concat(parts, " ")
-        end
-      end
-    end
-    -- A commit not reachable from ANY remote-tracking branch is local / not yet
-    -- pushed: mark it with a hollow yellow dot, pushed commits with the filled dot.
-    -- This uses `--not --remotes` rather than `@{u}..HEAD`, so it does NOT need an
-    -- upstream to be configured - a fresh `checkout -b` you have not pushed yet still
-    -- shows its commits as local here, matching the `;` history browser
-    -- (git-log-list.sh), which was already doing it this way. (The ahead/behind title
-    -- counts above still use @{u}, since ahead/behind is only meaningful against the
-    -- tracked branch.) Gated on at least one remote ref existing; with no remotes we
-    -- cannot tell what is pushed, so every commit keeps the plain filled dot.
-    local unpushed = {}
-    local has_remotes = false
-    local rh = io.popen(gitc .. "rev-list --remotes -n1 2>/dev/null")
-    if rh then
-      has_remotes = rh:read("*a"):gsub("%s+$", "") ~= ""
-      rh:close()
-    end
-    if has_remotes then
-      local uh = io.popen(gitc .. "rev-list HEAD --not --remotes 2>/dev/null")
-      if uh then
-        for sha in uh:lines() do
-          unpushed[sha] = true
-        end
-        uh:close()
-      end
-    end
-    local lines = {}
-    local lh = io.popen(gitc .. 'log --format="%H%x09%s%x09%an" -n 100 2>/dev/null')
-    if lh then
-      for line in lh:lines() do
-        local sha, rest = line:match("^(%x+)\t(.*)$")
-        if sha then
-          local marker = unpushed[sha] and "\27[33m○\27[0m" or "●"
-          lines[#lines + 1] = marker .. " " .. rest:gsub("\t", "  ")
-        else
-          lines[#lines + 1] = line
-        end
-      end
-      lh:close()
-    end
-    git_log_cache[root] = { time = now, branch = branch, ab = ab, lines = lines }
-    cached = git_log_cache[root]
-  end
+  local cached = load_state(root, true)
   local title = " git history "
   if cached.branch ~= "" then
     title = " git history (" .. cached.branch .. (cached.ab or "") .. ") "
