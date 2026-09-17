@@ -57,6 +57,10 @@ symlinked out of it, so moving or deleting it breaks them.
 `~/.config/xpdt` or `~/.config/nvim`, symlinks this repo in their place, installs
 the `xpdt` launcher next to the `xplr` binary, and bootstraps the Neovim plugins.
 
+At runtime xpdt keeps a small git-state cache in `${XDG_CACHE_HOME:-~/.cache}/xpdt`
+(a couple of files per repo you visit) so that drawing a frame never has to run git.
+It is regenerated on demand and safe to delete.
+
 **Every download is verified against a pinned SHA-256 before it is used**, and a
 mismatch aborts the install rather than running the binary - version pinning alone
 would not catch a swapped or tampered artifact. An artifact with no pinned hash is
