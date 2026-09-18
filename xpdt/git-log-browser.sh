@@ -25,6 +25,8 @@ while : ; do
         --bind "ctrl-z:execute(sh \"$X/git-undo.sh\" \"\$XPDT_ROOT\")+reload($LOG)" \
         --bind "b:execute(sh \"$X/git-branch-pick.sh\" \"\$XPDT_ROOT\" \"\$XPDT_REFF\")+reload($LOG)+transform-header($HDR)" \
         --bind "ctrl-p:execute(sh \"$X/git-cherry-pick.sh\" \"\$XPDT_ROOT\" {1})+reload($LOG)" \
+        --bind 'ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
+        --bind 'shift-up:preview-up,shift-down:preview-down' \
         --bind 'right:accept,enter:ignore,left:abort')
   [ -z "$LINE" ] && break
   HASH=$(printf '%s\n' "$LINE" | awk '{print $1}')
@@ -51,5 +53,7 @@ while : ; do
         --preview "git -C \"\$XPDT_ROOT\" show --color=never \"\$XPDT_HASH\" -- {-1} | python3 -S \"$X/diff-words.py\"" \
         --preview-window "down,$PW,wrap" \
         --bind "right:execute(sh \"$X/diff-view.sh\" \"\$XPDT_ROOT\" commit {-1} \"\$XPDT_HASH\")" \
+        --bind 'ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
+        --bind 'shift-up:preview-up,shift-down:preview-down' \
         --bind 'enter:ignore,left:abort'
 done

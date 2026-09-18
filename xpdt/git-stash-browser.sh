@@ -24,7 +24,7 @@ MAXLIST=15
 
 # {1} is the stash ref; empty when there are no stashes, so guard every action
 # and show a hint in the preview instead of a git error.
-HDR="$(sh "$X/wrap-header.sh" '[a] apply  [p] pop  [d] drop  [n] new  [x] clear all  [→] view  [←] back')"
+HDR="$(sh "$X/wrap-header.sh" '[a] apply  [p] pop  [d] drop  [n] new  [x] clear all  [ctrl-u/d] scroll  [→] view  [←] back')"
 # The list yields the (possibly wrapped) header lines plus the preview's top/bottom
 # border to chrome; the preview gets the rest (see git-changes-browser.sh for why).
 OVER=$(( $(printf '%s\n' "$HDR" | wc -l) + 2 ))
@@ -38,6 +38,8 @@ RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXLIST ] && n=$MAXLIST; [ \$n -lt 1 ] &
 eval "$LIST" \
   | fzf --ansi --no-sort --reverse --disabled --no-input \
       --header="$HDR" \
+      --bind 'ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
+      --bind 'shift-up:preview-up,shift-down:preview-down' \
       --preview "$PREVIEW" \
       --preview-window "down,$PW,wrap" \
       --bind "load:transform:$RESIZE" \

@@ -20,6 +20,25 @@ local function read_bool_setting(key, default)
   return result
 end
 
+-- Same file, for the settings whose value is not a 0/1 flag (currently the git
+-- history width). Returns the raw string so the caller can validate it.
+local function read_value_setting(key, default)
+  local f = io.open(os.getenv("HOME") .. "/.config/xpdt/.gate-config", "r")
+  if not f then
+    return default
+  end
+  local result = default
+  local pat = "^" .. key:gsub("%-", "%%-") .. "=(.+)$"
+  for line in f:lines() do
+    local v = line:match(pat)
+    if v then
+      result = v
+    end
+  end
+  f:close()
+  return result
+end
+
 -- Showing hidden files (dotfiles) is a setting toggled in the `,` menu, not a
 -- runtime key. xplr 1.1.0 has no runtime message to change show_hidden, so it is
 -- read here at load and a toggle takes effect on the next launch.
@@ -882,6 +901,70 @@ local function claude_indicator(root)
   return text
 end
 
+-- Trim a history row to `max` VISIBLE characters. The rows carry ANSI (the hollow
+-- yellow dot on an unpushed commit), so escape sequences are stepped over rather than
+-- counted, and UTF-8 is advanced a whole character at a time so a multi-byte glyph is
+-- never split down the middle. The result is closed with a reset, and the ellipsis
+-- occupies the last column so the row is exactly `max` wide.
+local function truncate_visible(s, max)
+  local width, i = 0, 1
+  while i <= #s do
+    local esc = s:match("^\27%[[0-9;]*m", i)
+    if esc then
+      i = i + #esc
+    else
+      local b = s:byte(i)
+      local n = 1
+      if b >= 0xF0 then
+        n = 4
+      elseif b >= 0xE0 then
+        n = 3
+      elseif b >= 0xC0 then
+        n = 2
+      end
+      width = width + 1
+      i = i + n
+    end
+  end
+  if width <= max then
+    return s
+  end
+
+  local out, col = {}, 0
+  i = 1
+  while i <= #s do
+    local esc = s:match("^\27%[[0-9;]*m", i)
+    if esc then
+      out[#out + 1] = esc
+      i = i + #esc
+    else
+      if col >= max - 1 then
+        break
+      end
+      local b = s:byte(i)
+      local n = 1
+      if b >= 0xF0 then
+        n = 4
+      elseif b >= 0xE0 then
+        n = 3
+      elseif b >= 0xC0 then
+        n = 2
+      end
+      out[#out + 1] = s:sub(i, i + n - 1)
+      col = col + 1
+      i = i + n
+    end
+  end
+  return table.concat(out) .. "…\27[0m"
+end
+
+-- `off` (the default) means no limit - the row runs to the panel edge and xplr clips
+-- it there, which is what xpdt has always done. Anything else is a width from the
+-- `,` menu; gate.sh validates it on the way out, so a junk config reads as off.
+local function history_line_max()
+  return tonumber(read_value_setting("history-line-length", "off")) or 0
+end
+
 xplr.fn.custom.render_git_graph = function(ctx)
   local root = repo_root_of(ctx.app.pwd)
   if not root then
@@ -900,6 +983,17 @@ xplr.fn.custom.render_git_graph = function(ctx)
       sliced[i] = body[i]
     end
     body = sliced
+  end
+  -- Trimming builds a NEW table: `body` may still be the snapshot's own `lines`, which
+  -- is shared with the cache, and trimming it in place would corrupt it for every
+  -- later render (and make a width change look permanent until the next git refresh).
+  local width = history_line_max()
+  if width > 0 then
+    local trimmed = {}
+    for i = 1, #body do
+      trimmed[i] = truncate_visible(body[i], width)
+    end
+    body = trimmed
   end
   return { CustomList = { ui = { title = { format = title } }, body = body } }
 end

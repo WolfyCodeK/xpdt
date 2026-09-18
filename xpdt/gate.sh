@@ -65,12 +65,36 @@ tokyonight|Tokyo Night
 EOF
 }
 
-get() { # get KEY -> 1 (on) or 0 (off), or for `theme` the theme name (default monokai).
+# Max visible width of a row in the `git history` panel (key|label). Like the theme
+# this is a radio, not a toggle. `off` keeps the old behaviour - a row runs to the
+# panel edge and is clipped there by xplr.
+histlen_rows() {
+  cat <<'EOF'
+off|No limit (default) - rows run to the panel edge
+60|60 characters
+80|80 characters
+100|100 characters
+120|120 characters
+EOF
+}
+
+get() { # get KEY -> 1 (on) or 0 (off); `theme` returns the theme name (default
+        # monokai) and `history-line-length` a width or `off`.
         # Confirmation actions and show-hidden default on; claude-integration and the
         # lsp-* language toggles are opt-in (off).
   if [ "$1" = theme ]; then
     v=$(sed -n 's/^theme=//p' "$CFG" 2>/dev/null | head -n1)
     [ -n "$v" ] && printf '%s\n' "$v" || echo monokai
+    return
+  fi
+  if [ "$1" = history-line-length ]; then
+    # Validated on the way OUT as well as in, so a hand-edited config cannot feed a
+    # junk width (or a shell fragment) through to the panel.
+    v=$(sed -n 's/^history-line-length=//p' "$CFG" 2>/dev/null | head -n1)
+    case "$v" in
+      off | 60 | 80 | 100 | 120) printf '%s\n' "$v" ;;
+      *) echo off ;;
+    esac
     return
   fi
   if [ -f "$CFG" ]; then
@@ -94,6 +118,7 @@ defaults() {
   echo "claude-integration=0"
   echo "help-hint=1"
   echo "theme=monokai"
+  echo "history-line-length=off"
   action_rows | while IFS='|' read -r k _; do echo "$k=1"; done
 }
 
@@ -171,6 +196,19 @@ case "${1:-}" in
       echo "theme=$2" >> "$CFG"
     fi
     ;;
+  sethistlen)
+    case "$2" in
+      off | 60 | 80 | 100 | 120) ;;
+      *) exit 1 ;;
+    esac
+    ensure_cfg
+    if grep -q '^history-line-length=' "$CFG" 2>/dev/null; then
+      tmp="$CFG.$$"
+      sed "s/^history-line-length=.*/history-line-length=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
+    else
+      echo "history-line-length=$2" >> "$CFG"
+    fi
+    ;;
   required) required "$2" ;;
   defaults) defaults ;;
   reset)
@@ -226,6 +264,14 @@ intellisense languages. Your search scope is left alone." || exit 1
     done
 
     gap
+    hdr 'GIT HISTORY'
+    sub 'Trim long commit rows in the git history panel (applies immediately)'
+    curlen=$(get history-line-length)
+    histlen_rows | while IFS='|' read -r k label; do
+      printf 'histlen:%s %s   %s\n' "$k" "$(radio "$([ "$k" = "$curlen" ] && echo 1 || echo 0)")" "$label"
+    done
+
+    gap
     hdr 'NEOVIM INTELLISENSE'
     sub 'Turn on per language; install only the ones you pick (:XpdtLsp in nvim)'
     lsp_rows | while IFS='|' read -r k label; do
@@ -252,5 +298,5 @@ intellisense languages. Your search scope is left alone." || exit 1
     # code regardless of the master switch above (see the `reset` case).
     printf '__reset__ \033[38;5;203m[!]\033[0m   Reset all settings to their defaults (always asks for the code)\n'
     ;;
-  *) echo "usage: gate.sh {get|toggle|settheme|required|confirm|defaults|reset|menu} ..." >&2; exit 2 ;;
+  *) echo "usage: gate.sh {get|toggle|settheme|sethistlen|required|confirm|defaults|reset|menu} ..." >&2; exit 2 ;;
 esac
