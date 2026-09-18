@@ -117,6 +117,7 @@ defaults() {
   echo "show-hidden=1"
   echo "claude-integration=0"
   echo "help-hint=1"
+  echo "show-logs=1"
   echo "theme=monokai"
   echo "history-line-length=off"
   action_rows | while IFS='|' read -r k _; do echo "$k=1"; done
@@ -247,6 +248,7 @@ intellisense languages. Your search scope is left alone." || exit 1
     printf 'show-hidden %s Show hidden files (dotfiles) - applies on next launch\n' "$(box "$(get show-hidden)")"
     printf 'claude-integration %s Claude session list in the git history panel\n' "$(box "$(get claude-integration)")"
     printf 'help-hint %s A one-line [h] keybindings note along the bottom of the screen\n' "$(box "$(get help-hint)")"
+    printf 'show-logs %s The logs strip along the bottom (it reappears on its own for a prompt)\n' "$(box "$(get show-logs)")"
 
     gap
     hdr 'NEOVIM'

@@ -1017,27 +1017,58 @@ end
 -- so the keybindings are discoverable without already knowing the key. Turned off
 -- with the help-hint setting in the `,` menu, which gives the row back to the layout.
 --
--- The note has no border because it is a single row: with the default borders
--- (Top/Right/Bottom/Left) that one row would be nothing but the box's top edge. An
--- empty Lua table cannot express "no borders" - `{}` serialises as a JSON object, not
--- as an empty list, and the panel then renders blank rather than borderless - so the
--- empty array has to come from from_json.
+-- The text is the panel's TITLE, not its body, and that is the only way to get it onto
+-- a single row. xplr's block() always attaches a title span (an empty one when the
+-- panel gives no title), and ratatui reserves the top row of a block for its title
+-- even when no borders are drawn - so a custom panel's BODY can never reach row 1, and
+-- a body-based note needs two rows with the first one blank. A title renders on
+-- exactly that reserved row, so putting the text there makes the panel genuinely one
+-- row tall. Borders still have to be cleared, and an empty Lua table cannot express
+-- that: `{}` serialises as a JSON object rather than an empty list, which leaves the
+-- default borders in place - hence from_json.
 local NO_BORDERS = xplr.util.from_json("[]")
+local NO_MODIFIERS = xplr.util.from_json("[]")
 
 xplr.fn.custom.render_hint = function(_)
   return {
     CustomParagraph = {
-      ui = { borders = NO_BORDERS },
-      body = "\27[38;5;244m  [h] keybindings\27[0m",
+      ui = {
+        borders = NO_BORDERS,
+        title = {
+          format = "  [h] keybindings",
+          -- panel_ui.default's title style is bold; the note should recede, not shout,
+          -- so the modifiers are cleared rather than inherited.
+          style = { fg = { Rgb = { 128, 128, 128 } }, add_modifiers = NO_MODIFIERS },
+        },
+      },
+      body = "",
     },
   }
 end
 
--- 2, not 1: a panel still reserves its border frame even with borders hidden, so the
--- body lands on the second row. That puts the note on the very last row of the screen
--- with a blank spacer above it, which reads as a footer. 0 when the setting is off.
 local function hint_height()
-  return read_bool_setting("help-hint", true) and 2 or 0
+  return read_bool_setting("help-hint", true) and 1 or 0
+end
+
+-- Height of xplr's built-in InputAndLogs strip. Hiding it is a setting, but that panel
+-- is also where xplr draws its input line, so hiding it unconditionally would leave you
+-- typing blind into a prompt you cannot see (`duplicate as`, for one, creates files).
+-- It therefore comes back on its own whenever xplr is in any mode other than `default`
+-- - xpdt binds every one of its own actions in `default` and does its prompting through
+-- external scripts, so a non-default mode means a builtin wants the input line. Testing
+-- showed `input_buffer` is still nil on the frame a prompt opens and only fills once
+-- there is text, so the mode is the signal and the buffer is only a backstop.
+local LOGS_HEIGHT = 3
+
+local function logs_height(ctx)
+  if read_bool_setting("show-logs", true) then
+    return LOGS_HEIGHT
+  end
+  local mode = ctx.app.mode
+  if (mode and mode.name and mode.name ~= "default") or ctx.app.input_buffer ~= nil then
+    return LOGS_HEIGHT
+  end
+  return 0
 end
 
 xplr.fn.custom.render_layout = function(ctx)
@@ -1070,11 +1101,13 @@ xplr.fn.custom.render_layout = function(ctx)
   -- TABLE_MIN rows. Only once the history is at its floor does the Table itself start to shrink.
   local GRAPH_MAX, GRAPH_MIN, TABLE_MIN = 14, 3, 10
   local hint = hint_height()
+  local logs = logs_height(ctx)
   local graph_height = GRAPH_MAX
   local h = ctx.layout_size and ctx.layout_size.height
   if h then
-    -- 3 = InputAndLogs (controls are the `h` popup); hint = the bottom note, 0 when off
-    graph_height = h - TABLE_MIN - changes_height - claude_height - 3 - hint
+    -- logs = InputAndLogs, 0 when hidden (controls are the `h` popup);
+    -- hint = the bottom note, 0 when off
+    graph_height = h - TABLE_MIN - changes_height - claude_height - logs - hint
     if graph_height > GRAPH_MAX then
       graph_height = GRAPH_MAX
     elseif graph_height < GRAPH_MIN then
@@ -1090,7 +1123,7 @@ xplr.fn.custom.render_layout = function(ctx)
             { Length = changes_height },
             { Length = graph_height },
             { Length = claude_height },
-            { Length = 3 },
+            { Length = logs },
             { Length = hint },
           },
         },
