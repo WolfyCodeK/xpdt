@@ -8,7 +8,7 @@ Everything lives in `~/.config/xpdt/`. `init.lua` is the entry point; the rest a
 
 `init.lua` replaces the default layout with a `Dynamic` custom layout (`custom.render_layout`) stacked vertically:
 
-1. `Table` (the file listing) with custom columns: index, path (tree + icon + name), a one char git modified dot (`M`), git author, size, modified time.
+1. `Table` (the file listing) with custom columns: index, path (tree + icon + name), a one char git modified dot (`M`), git author, size, modified time. No cell in the table is ever blank: a column with nothing to report shows `N/A`, so "nothing here" reads differently from "not computed yet".
 2. `changes` box (`custom.render_git_changes`) listing staged and unstaged changes, auto sized to the number of changes (the box is capped at 30 rows, so ~28 changes are visible before it stops growing).
 3. `git history` box (`custom.render_git_graph`) showing the last 100 commits of the current branch. Each commit is prefixed with a filled dot (`●`) if it is on the upstream (pushed) or a hollow yellow dot (`○`) if it is local - ahead of the upstream and not yet pushed (with no upstream, every commit keeps the plain dot). Sized responsively from the terminal height: on a short window it scales down first (to a ~3 row floor) so the file listing keeps at least ~10 rows; only once the history reaches that floor does the file listing itself start to shrink. Panel *width* is separate and set by the `history-width` setting (see the settings section) - `off` by default (full width), or a fixed number of columns, which narrows the panel itself and trims long commit rows with an ellipsis.
 4. `claude` box (`custom.render_claude`), only present when the `claude-integration` setting is on and you have recent Claude Code sessions (otherwise 0 height / hidden). A grouped, cross-repo panel of your sessions with status, context % and last-active time. See the claude panel below.
@@ -125,8 +125,14 @@ Inline diff viewer: `→` next change, `shift-→` previous change, `←` back. 
 - On the first cache miss in a directory, `batch_git_authors` calls `git-authors.sh` once for the whole directory (`git_author_dir_done` guards against re running it).
 - `git-authors.sh` branches: a leaf directory (no subdirectories) uses one recursive `git log --name-only -- .`; a directory with subdirectories batches only its immediate files (`git ls-tree` + `git log` over those paths) so it never walks the whole repository subtree. This is the fix for the top of the repo taking a couple of seconds to open.
 - That batch is bounded to the most recent `-n 500` commits. `git log --name-only` has no way to stop once it has seen each file, so without a bound it walks the repo's entire history every time you enter a directory - the main lag on a deep repo. A file's last author is almost always within that window; older files simply show no author.
-- Anything not covered by the batch (an untracked file, or a file whose last commit is older than the window) is left blank - not resolved with a per-file `git log`. That per-file fallback used to spawn a `git` process for every such entry while the table rendered, which was a large part of the first-open lag for a directory full of new/untracked files.
+- Anything not covered by the batch (an untracked file, or a file whose last commit is older than the window) shows `N/A` - it is not resolved with a per-file `git log`. That per-file fallback used to spawn a `git` process for every such entry while the table rendered, which was a large part of the first-open lag for a directory full of new/untracked files.
 - A gitignored path shows `ignored` in bold red instead of an author. `git-state.sh` runs `git status --porcelain --ignored` (git collapses an ignored directory to a single `dir/` entry, so this stays cheap), and those `!!` rows are kept out of the changes box and the M column - they only feed the author column's ignored flag (`path_ignored`).
+
+The column always shows something. Where git has no author to give - a path outside any repo, a directory (the batch lists files, and extending it to attribute directories would mean dropping the `-n 500` bound that keeps entering a directory cheap), the contents of a symlinked directory, or a file the bounded batch did not reach - the cell reads `N/A` rather than sitting empty.
+
+### Size column
+
+xplr's builtin size formatter returns an empty string for a directory, which left a gap running down the column. `fmt_general_table_row_cols_3` is overridden so a directory reports its own size - the directory entry's, exactly what `ls -l` shows - and anything without a size at all reads `N/A`. It is deliberately *not* a recursive total: walking a tree per row per render is the class of work that was taken off the render path in 1.41.1, and it would be paid again on every keypress.
 
 ### Your settings survive a reinstall
 

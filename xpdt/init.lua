@@ -316,6 +316,10 @@ xplr.config.general.default_ui = {
 
 xplr.config.general.table.header.style = { fg = "DarkGray", add_modifiers = { "Bold" } }
 
+-- Shown wherever a column has nothing to report, so no cell in the table is ever
+-- blank and "nothing here" is distinguishable from "not computed yet".
+local NO_VALUE = "N/A"
+
 local git_author_cache = {}
 local git_author_dir_done = {}
 local git_state_cache = {}
@@ -715,6 +719,19 @@ local function batch_git_authors(dirabs, root)
   handle:close()
 end
 
+-- xplr's builtin size column returns "" for a directory, leaving a gap down the
+-- column. Every row should carry a value, so a directory reports its own size - the
+-- directory entry's, exactly what `ls -l` shows - rather than a recursive total:
+-- walking a tree per row per render is the kind of work that was deliberately taken
+-- off the render path, and it would be paid again on every keypress.
+xplr.fn.builtin.fmt_general_table_row_cols_3 = function(m)
+  local size = m.human_size
+  if size == nil or size == "" then
+    return NO_VALUE
+  end
+  return size
+end
+
 xplr.fn.builtin.fmt_general_table_row_cols_2 = function(m)
   local path = m.absolute_path
   local cached = git_author_cache[path]
@@ -725,17 +742,17 @@ xplr.fn.builtin.fmt_general_table_row_cols_2 = function(m)
   local dir = dir_of(path)
   local root = repo_root_of(dir)
   if not root then
-    git_author_cache[path] = ""
-    return ""
+    git_author_cache[path] = NO_VALUE
+    return NO_VALUE
   end
 
   -- Inside a symlinked directory the repo root is the logical origin (where the
   -- symlink lives), which does not track the symlink's contents, so there is no
-  -- author to attribute - and the batch would query the wrong (physical) repo. Leave
-  -- the column blank, matching the modified column.
+  -- author to attribute - and the batch would query the wrong (physical) repo. There is
+  -- nothing to show, so it reads as unknown rather than as a blank.
   if path:sub(1, #root + 1) ~= (root .. "/") then
-    git_author_cache[path] = ""
-    return ""
+    git_author_cache[path] = NO_VALUE
+    return NO_VALUE
   end
 
   -- A gitignored path has no author to show; say "ignored" in bold red instead.
@@ -753,10 +770,10 @@ xplr.fn.builtin.fmt_general_table_row_cols_2 = function(m)
   local a = git_author_cache[path]
   if a == nil then
     -- Missed by the (bounded) batch: an untracked file, or one whose last commit is
-    -- older than the author walk depth. Leave it blank rather than spawning a git
-    -- process per file on render - that per-file cost was a big part of the lag when
-    -- first entering a directory (especially one with many untracked files).
-    a = ""
+    -- older than the author walk depth. Reported as unknown rather than looked up -
+    -- spawning a git process per file on render was a big part of the lag when first
+    -- entering a directory (especially one with many untracked files).
+    a = NO_VALUE
     git_author_cache[path] = a
   end
   return a
