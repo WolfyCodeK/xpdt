@@ -30,13 +30,15 @@ fi
 # advertised in the header for that group only, though the bind is harmless either
 # way (git-hunk.sh refuses discard on a staged hunk).
 if [ "$GROUP" = staged ]; then
-  HDR="[s] unstage hunk    [←] back    $FILE ($GROUP)"
+  HDR="[s] unstage hunk    [ctrl-u/d] scroll    [←] back    $FILE ($GROUP)"
 else
-  HDR="[s] stage hunk    [d] discard hunk    [←] back    $FILE ($GROUP)"
+  HDR="[s] stage hunk    [d] discard hunk    [ctrl-u/d] scroll    [←] back    $FILE ($GROUP)"
 fi
 
 eval "$LIST" | fzf --ansi --no-sort --reverse --disabled --no-input \
   --header="$(sh "$X/wrap-header.sh" "$HDR")" \
+  --bind 'ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
+  --bind 'shift-up:preview-up,shift-down:preview-down' \
   --preview "$HUNK show $ARGS {1} | python3 -S \"$X/diff-words.py\"" \
   --preview-window 'down,72%,wrap' \
   --bind "s:execute($HUNK apply $ARGS {1})+reload($LIST)" \

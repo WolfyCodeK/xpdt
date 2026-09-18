@@ -15,6 +15,6 @@ trunc() {  # trunc STRING MAX -> STRING, truncated with a trailing … if over M
   fi
 }
 
-HDR=$(printf '[→] files   [ctrl-p] cherry-pick onto %s   [b] view branch (%s)   [ctrl-z] undo   [←] back' \
+HDR=$(printf '[→] files   [ctrl-p] cherry-pick onto %s   [b] view branch (%s)   [ctrl-z] undo   [ctrl-u/d] scroll   [←] back' \
   "$(trunc "$CUR" 20)" "$(trunc "$REF" 20)")
 sh "$HOME/.config/xpdt/wrap-header.sh" "$HDR"

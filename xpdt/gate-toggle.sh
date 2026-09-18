@@ -26,6 +26,7 @@ case "${1:-}" in
     exit 0
     ;;
   theme:*) sh "$X/gate.sh" settheme "${1#theme:}" ;;
+  histlen:*) sh "$X/gate.sh" sethistlen "${1#histlen:}" ;;
   *) sh "$X/gate.sh" toggle "$1" ;;
 esac
 printf '%s' "$RELOAD"
