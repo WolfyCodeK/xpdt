@@ -958,11 +958,11 @@ local function truncate_visible(s, max)
   return table.concat(out) .. "…\27[0m"
 end
 
--- `off` (the default) means no limit - the row runs to the panel edge and xplr clips
--- it there, which is what xpdt has always done. Anything else is a width from the
--- `,` menu; gate.sh validates it on the way out, so a junk config reads as off.
-local function history_line_max()
-  return tonumber(read_value_setting("history-line-length", "off")) or 0
+-- How many columns wide the git history panel should be. `off` (the default) means
+-- full width, which is what xpdt has always done. Anything else is a column count from
+-- the `,` menu; gate.sh validates it on the way out, so a junk config reads as off.
+local function history_width()
+  return tonumber(read_value_setting("history-width", "off")) or 0
 end
 
 xplr.fn.custom.render_git_graph = function(ctx)
@@ -984,10 +984,18 @@ xplr.fn.custom.render_git_graph = function(ctx)
     end
     body = sliced
   end
+  -- When the panel has been narrowed, trim the rows to the width it actually got minus
+  -- its two border columns, so a cut row ends in an ellipsis instead of being clipped
+  -- mid-word at the border. The renderer reads its OWN layout_size rather than the
+  -- setting, so it is always right even where the requested width was clamped.
+  --
   -- Trimming builds a NEW table: `body` may still be the snapshot's own `lines`, which
   -- is shared with the cache, and trimming it in place would corrupt it for every
   -- later render (and make a width change look permanent until the next git refresh).
-  local width = history_line_max()
+  local width = 0
+  if history_width() > 0 and ctx.layout_size and ctx.layout_size.width then
+    width = ctx.layout_size.width - 2
+  end
   if width > 0 then
     local trimmed = {}
     for i = 1, #body do
@@ -1114,6 +1122,29 @@ xplr.fn.custom.render_layout = function(ctx)
       graph_height = GRAPH_MIN
     end
   end
+  -- Capping the panel's WIDTH means putting it in a horizontal split of its own row and
+  -- letting `Nothing` take the rest, since a vertical split's rows are always full
+  -- width. Skipped when the terminal is already narrower than the requested width, so a
+  -- small window is never given a pointless empty column.
+  local history_split = { Dynamic = "custom.render_git_graph" }
+  local hw = history_width()
+  local avail = ctx.layout_size and ctx.layout_size.width or 0
+  if hw > 0 and avail > 0 and hw < avail then
+    history_split = {
+      Horizontal = {
+        config = { constraints = { { Length = hw }, { Min = 0 } } },
+        splits = {
+          { Dynamic = "custom.render_git_graph" },
+          -- Not the `Nothing` layout: xplr's draw_nothing renders an empty paragraph
+          -- inside the DEFAULT block, which has all four borders, so it paints a second
+          -- empty box beside the panel. A borderless static paragraph leaves the space
+          -- genuinely blank.
+          { Static = { CustomParagraph = { ui = { borders = NO_BORDERS }, body = "" } } },
+        },
+      },
+    }
+  end
+
   return {
     CustomLayout = {
       Vertical = {
@@ -1130,7 +1161,7 @@ xplr.fn.custom.render_layout = function(ctx)
         splits = {
           "Table",
           { Dynamic = "custom.render_git_changes" },
-          { Dynamic = "custom.render_git_graph" },
+          history_split,
           { Dynamic = "custom.render_claude" },
           "InputAndLogs",
           { Dynamic = "custom.render_hint" },

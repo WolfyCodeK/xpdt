@@ -65,16 +65,16 @@ tokyonight|Tokyo Night
 EOF
 }
 
-# Max visible width of a row in the `git history` panel (key|label). Like the theme
-# this is a radio, not a toggle. `off` keeps the old behaviour - a row runs to the
-# panel edge and is clipped there by xplr.
-histlen_rows() {
+# Width of the `git history` panel in terminal COLUMNS (key|label). Like the theme this
+# is a radio, not a toggle. `off` keeps the old behaviour - the panel spans the full
+# width of the window. A width wider than the terminal is ignored.
+histwidth_rows() {
   cat <<'EOF'
-off|No limit (default) - rows run to the panel edge
-60|60 characters
-80|80 characters
-100|100 characters
-120|120 characters
+off|Full width (default)
+60|60 columns
+80|80 columns
+100|100 columns
+120|120 columns
 EOF
 }
 
@@ -87,10 +87,10 @@ get() { # get KEY -> 1 (on) or 0 (off); `theme` returns the theme name (default
     [ -n "$v" ] && printf '%s\n' "$v" || echo monokai
     return
   fi
-  if [ "$1" = history-line-length ]; then
+  if [ "$1" = history-width ]; then
     # Validated on the way OUT as well as in, so a hand-edited config cannot feed a
     # junk width (or a shell fragment) through to the panel.
-    v=$(sed -n 's/^history-line-length=//p' "$CFG" 2>/dev/null | head -n1)
+    v=$(sed -n 's/^history-width=//p' "$CFG" 2>/dev/null | head -n1)
     case "$v" in
       off | 60 | 80 | 100 | 120) printf '%s\n' "$v" ;;
       *) echo off ;;
@@ -119,7 +119,7 @@ defaults() {
   echo "help-hint=1"
   echo "show-logs=1"
   echo "theme=monokai"
-  echo "history-line-length=off"
+  echo "history-width=off"
   action_rows | while IFS='|' read -r k _; do echo "$k=1"; done
 }
 
@@ -197,17 +197,17 @@ case "${1:-}" in
       echo "theme=$2" >> "$CFG"
     fi
     ;;
-  sethistlen)
+  sethistwidth)
     case "$2" in
       off | 60 | 80 | 100 | 120) ;;
       *) exit 1 ;;
     esac
     ensure_cfg
-    if grep -q '^history-line-length=' "$CFG" 2>/dev/null; then
+    if grep -q '^history-width=' "$CFG" 2>/dev/null; then
       tmp="$CFG.$$"
-      sed "s/^history-line-length=.*/history-line-length=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
+      sed "s/^history-width=.*/history-width=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
     else
-      echo "history-line-length=$2" >> "$CFG"
+      echo "history-width=$2" >> "$CFG"
     fi
     ;;
   required) required "$2" ;;
@@ -267,10 +267,10 @@ intellisense languages. Your search scope is left alone." || exit 1
 
     gap
     hdr 'GIT HISTORY'
-    sub 'Trim long commit rows in the git history panel (applies immediately)'
-    curlen=$(get history-line-length)
-    histlen_rows | while IFS='|' read -r k label; do
-      printf 'histlen:%s %s   %s\n' "$k" "$(radio "$([ "$k" = "$curlen" ] && echo 1 || echo 0)")" "$label"
+    sub 'How many columns wide the git history panel is (applies immediately)'
+    curwidth=$(get history-width)
+    histwidth_rows | while IFS='|' read -r k label; do
+      printf 'histwidth:%s %s   %s\n' "$k" "$(radio "$([ "$k" = "$curwidth" ] && echo 1 || echo 0)")" "$label"
     done
 
     gap
@@ -300,5 +300,5 @@ intellisense languages. Your search scope is left alone." || exit 1
     # code regardless of the master switch above (see the `reset` case).
     printf '__reset__ \033[38;5;203m[!]\033[0m   Reset all settings to their defaults (always asks for the code)\n'
     ;;
-  *) echo "usage: gate.sh {get|toggle|settheme|sethistlen|required|confirm|defaults|reset|menu} ..." >&2; exit 2 ;;
+  *) echo "usage: gate.sh {get|toggle|settheme|sethistwidth|required|confirm|defaults|reset|menu} ..." >&2; exit 2 ;;
 esac
