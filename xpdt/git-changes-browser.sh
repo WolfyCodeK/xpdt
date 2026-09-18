@@ -45,7 +45,11 @@ PW=$(pv "$NENTRIES")
 UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim {3..}"
 [ "$(sh "$X/gate.sh" get nvim-diff-unstaged)" = 1 ] && UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim -c XpdtDiff {3..}"
 
-DIFF="{ if [ {1} = staged ]; then git -C \"\$XPDT_ROOT\" diff --cached --color=never -- {3..}; else git -C \"\$XPDT_ROOT\" diff --color=never -- {3..}; fi; } | python3 -S \"$X/diff-words.py\""
+# An untracked file ({2} = ?) is in no diff at all, so `git diff` printed nothing and
+# the preview sat empty. --no-index against /dev/null gives it a real diff - every line
+# an addition - so a new file previews as pure green like any other add. It exits 1 when
+# the files differ (always, here), hence the `|| true`. Tracked entries are unchanged.
+DIFF="{ if [ {1} = staged ]; then git -C \"\$XPDT_ROOT\" diff --cached --color=never -- {3..}; elif [ {2} = '?' ]; then git -C \"\$XPDT_ROOT\" diff --no-index --color=never -- /dev/null {3..} || true; else git -C \"\$XPDT_ROOT\" diff --color=never -- {3..}; fi; } | python3 -S \"$X/diff-words.py\" --syntax {3..}"
 # Re-run on every (re)load so the list keeps matching the current change count.
 RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
 

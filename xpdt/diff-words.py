@@ -12,8 +12,18 @@
 # with the i-th `+` line) and word-diffed with difflib; lines with no counterpart
 # (a pure add or delete) keep just the dim background. Operating on the plain diff
 # (no ANSI in) keeps this simple and lossless - we own every colour we emit.
+#
+# With `--syntax PATH` the line CONTENT is additionally syntax-highlighted by bat,
+# using PATH only to pick the language, so a diff reads as code rather than as two
+# flat colours. The add/remove backgrounds and the word-level highlights are then
+# overlaid on top of bat's colouring (see tint). bat is optional: if it is missing,
+# fails, or returns the wrong number of lines, every line falls back to the flat
+# colouring below, so the preview degrades instead of breaking.
 import sys
+import os
 import re
+import shutil
+import subprocess
 import difflib
 
 RESET = "\x1b[0m"
@@ -76,6 +86,83 @@ def expand(s):
 SIMILAR = 0.5
 
 
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def highlight(lines, path):
+    """Syntax-colour `lines` with bat, picking the language from `path`'s name.
+    Returns a list of the same length, or None if anything is off - callers then
+    fall back to flat colouring rather than risk mis-rendering the diff."""
+    if not lines or not path:
+        return None
+    bat = shutil.which("bat")
+    if not bat:
+        return None
+    try:
+        r = subprocess.run(
+            [
+                bat,
+                "--color=always",
+                "--plain",
+                "--paging=never",
+                "--tabs=0",  # tabs are already expanded, so do not expand them twice
+                "--file-name",
+                os.path.basename(path),
+            ],
+            input="\n".join(lines),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return None
+    if r.returncode != 0:
+        return None
+    out = r.stdout.split("\n")
+    if out and out[-1] == "":
+        out.pop()
+    # A length mismatch means the mapping back onto diff lines would be wrong;
+    # refuse rather than colour the wrong lines.
+    return out if len(out) == len(lines) else None
+
+
+def column_mask(toks, mask):
+    """Turn a per-token changed-mask into a per-visible-column one, so the word
+    highlights can be located inside a string that also contains escape codes."""
+    cols = []
+    for tok, ch in zip(toks, mask):
+        cols.extend([ch] * len(tok))
+    return cols
+
+
+def tint(ansi, cols, sign, sign_fg, base_bg, str_bg):
+    """Overlay the line background - and the brighter word backgrounds - onto an
+    already syntax-coloured line. bat emits a reset after every token, which would
+    drop our background, so it is re-asserted after each one; the word spans are
+    located by visible column, stepping over escape sequences."""
+    out = [base_bg, sign_fg, sign]
+    cur = base_bg
+    out.append(cur)
+    i, col = 0, 0
+    while i < len(ansi):
+        m = ANSI.match(ansi, i)
+        if m:
+            out.append(m.group(0))
+            if m.group(0) == RESET:
+                out.append(cur)  # bat reset our background away; put it back
+            i = m.end()
+            continue
+        want = str_bg if (col < len(cols) and cols[col]) else base_bg
+        if want != cur:
+            out.append(want)
+            cur = want
+        out.append(ansi[i])
+        col += 1
+        i += 1
+    out.append(RESET)
+    return "".join(out)
+
+
 def changed_masks(a, b):
     at, bt = TOKEN.findall(a), TOKEN.findall(b)
     am = [False] * len(at)
@@ -103,69 +190,115 @@ def render_line(sign, sign_fg, base_bg, str_bg, toks, mask):
     return "".join(parts)
 
 
-def emit_group(out, dels, adds):
-    # dels/adds are the raw lines (including their leading -/+). Pair them up for
-    # word-diffing; extra lines on either side are pure add/delete (dim bg only).
+def emit_group(out, dels, adds, old_hl, new_hl):
+    # dels/adds are classify() records. Pair them up for word-diffing; extra lines on
+    # either side are pure add/delete (dim bg only).
     n = min(len(dels), len(adds))
     masks_d = [None] * len(dels)
     masks_a = [None] * len(adds)
     for i in range(n):
         (dt, dm), (at, am), ratio = changed_masks(
-            expand(dels[i][1:]), expand(adds[i][1:])
+            expand(dels[i][1][1:]), expand(adds[i][1][1:])
         )
         if ratio >= SIMILAR:
             masks_d[i] = (dt, dm)
             masks_a[i] = (at, am)
-    for i, line in enumerate(dels):
-        if masks_d[i] is not None:
-            toks, mask = masks_d[i]
+
+    def emit(side, masks, hl, col, sign, sign_fg, base_bg, str_bg):
+        for i, rec in enumerate(side):
+            text = expand(rec[1][1:])
+            if masks[i] is not None:
+                toks, mask = masks[i]
+            else:
+                toks, mask = TOKEN.findall(text), None
+            mask = mask or [False] * len(toks)
+            idx = rec[col]
+            if hl is not None and idx is not None and idx < len(hl):
+                out.append(
+                    tint(
+                        hl[idx], column_mask(toks, mask), sign, sign_fg, base_bg, str_bg
+                    )
+                )
+            else:
+                out.append(render_line(sign, sign_fg, base_bg, str_bg, toks, mask))
+
+    emit(dels, masks_d, old_hl, 2, "-", DEL_SIGN, DEL_BG, DEL_STR)
+    emit(adds, masks_a, new_hl, 3, "+", ADD_SIGN, ADD_BG, ADD_STR)
+
+
+def classify(lines):
+    """Split the diff into records and tag each body line with its position in the
+    old-side and new-side content streams (a context line is in both). Those two
+    streams are what gets syntax-highlighted, so each side is coloured with its own
+    correct context instead of with the two interleaved."""
+    recs, old, new = [], [], []
+    for line in lines:
+        is_del = line.startswith("-") and not line.startswith("---")
+        is_add = line.startswith("+") and not line.startswith("+++")
+        if is_del:
+            recs.append(("del", line, len(old), None))
+            old.append(expand(line[1:]))
+        elif is_add:
+            recs.append(("add", line, None, len(new)))
+            new.append(expand(line[1:]))
+        elif line.startswith("@@"):
+            recs.append(("hunk", line, None, None))
+        elif line.startswith(HDR_PREFIXES):
+            recs.append(("hdr", line, None, None))
+        elif line.startswith(META_PREFIXES):
+            recs.append(("meta", line, None, None))
+        elif line.startswith(" "):
+            recs.append(("ctx", line, len(old), len(new)))
+            old.append(expand(line[1:]))
+            new.append(expand(line[1:]))
         else:
-            toks, mask = TOKEN.findall(expand(line[1:])), None
-        out.append(
-            render_line(
-                "-", DEL_SIGN, DEL_BG, DEL_STR, toks, mask or [False] * len(toks)
-            )
-        )
-    for i, line in enumerate(adds):
-        if masks_a[i] is not None:
-            toks, mask = masks_a[i]
-        else:
-            toks, mask = TOKEN.findall(expand(line[1:])), None
-        out.append(
-            render_line(
-                "+", ADD_SIGN, ADD_BG, ADD_STR, toks, mask or [False] * len(toks)
-            )
-        )
+            recs.append(("other", line, None, None))
+    return recs, old, new
 
 
 def main():
+    path = None
+    argv = sys.argv[1:]
+    if "--syntax" in argv:
+        k = argv.index("--syntax")
+        if k + 1 < len(argv):
+            path = argv[k + 1]
+
     lines = sys.stdin.read().split("\n")
     if lines and lines[-1] == "":
         lines.pop()
+
+    recs, old, new = classify(lines)
+    old_hl = highlight(old, path)
+    new_hl = highlight(new, path)
+
     out = []
-    i, n = 0, len(lines)
+    i, n = 0, len(recs)
     while i < n:
-        line = lines[i]
-        is_del = line.startswith("-") and not line.startswith("---")
-        is_add = line.startswith("+") and not line.startswith("+++")
-        if is_del or is_add:
+        kind, line, oi, ni = recs[i]
+        if kind in ("del", "add"):
             dels, adds = [], []
-            while i < n and lines[i].startswith("-") and not lines[i].startswith("---"):
-                dels.append(lines[i])
+            while i < n and recs[i][0] == "del":
+                dels.append(recs[i])
                 i += 1
-            while i < n and lines[i].startswith("+") and not lines[i].startswith("+++"):
-                adds.append(lines[i])
+            while i < n and recs[i][0] == "add":
+                adds.append(recs[i])
                 i += 1
-            emit_group(out, dels, adds)
+            emit_group(out, dels, adds, old_hl, new_hl)
             continue
-        if line.startswith("@@"):
+        if kind == "hunk":
             out.append(HUNK + expand(line) + RESET)
-        elif line.startswith(HDR_PREFIXES):
+        elif kind == "hdr":
             out.append(HDR + expand(line) + RESET)
-        elif line.startswith(META_PREFIXES):
+        elif kind == "meta":
             out.append(META + expand(line) + RESET)
-        elif line.startswith(" "):
-            out.append(CTX + expand(line) + RESET)
+        elif kind == "ctx":
+            # Context keeps the syntax colour with no background, so the eye reads the
+            # tinted add/remove rows as the changes and everything else as plain code.
+            if new_hl is not None and ni is not None and ni < len(new_hl):
+                out.append(" " + new_hl[ni] + RESET)
+            else:
+                out.append(CTX + expand(line) + RESET)
         else:
             out.append(GREY + expand(line) + RESET)
         i += 1

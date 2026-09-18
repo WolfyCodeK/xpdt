@@ -413,11 +413,52 @@ end
 -- directory the symlink lives in (where you entered it from), instead of jumping to
 -- the symlink target's own repo - git -C would chdir through the symlink and resolve
 -- it physically. Cached per dir for the session.
+-- Native, no-fork checks; guarded so a missing util just means the script runs, as before.
+local HAVE_UTIL = type(xplr.util) == "table"
+  and type(xplr.util.is_symlink) == "function"
+  and type(xplr.util.exists) == "function"
+
 local function repo_root_of(dir)
   local cached = repo_root_cache[dir]
   if cached ~= nil then
     return cached
   end
+
+  -- Fast path: inherit the parent's answer, which saves the one spawn per directory
+  -- that used to be paid on the way into every new folder. This is exact, not a
+  -- guess: repo-root.sh anchors on the DEEPEST symlinked path component, and adding
+  -- one more non-symlink component cannot change which component that is, so the
+  -- anchor - and therefore the repo it resolves to - is identical to the parent's.
+  -- Two cases would break that and so still run the script: a symlinked leaf, which
+  -- introduces a new deepest symlink and moves the anchor, and a directory that is
+  -- itself a repo root (nested repo, submodule or worktree - `.git` can be a file),
+  -- where git would stop here instead of carrying on up to the parent's root. A
+  -- cached `false` (parent is in no repo) is inherited too, which is why this tests
+  -- for nil rather than for truthiness. `.git` itself is excluded because git refuses
+  -- to report a work tree from inside the git directory, so the script answers "no
+  -- repo" there while the parent has one; everything below `.git` then inherits that
+  -- "no repo" correctly.
+  --
+  -- Known limit: a mount point nested inside a repo. Git stops discovery at a
+  -- filesystem boundary, so the child is in no repo while the parent is, and nothing
+  -- in xplr.util exposes a device id to detect it. The panels would show the outer
+  -- repo there. It is rare, and the effect is cosmetic - paths under the wrong root
+  -- simply do not match, so the columns come out blank rather than wrong.
+  if HAVE_UTIL then
+    local parent = dir_of(dir)
+    if parent ~= dir and dir:match("([^/]+)$") ~= ".git" then
+      local inherited = repo_root_cache[parent]
+      if
+        inherited ~= nil
+        and not xplr.util.is_symlink(dir)
+        and not xplr.util.exists(dir .. "/.git")
+      then
+        repo_root_cache[dir] = inherited
+        return inherited
+      end
+    end
+  end
+
   local handle = io.popen('sh "$HOME/.config/xpdt/repo-root.sh" ' .. shq(dir) .. " 2>/dev/null")
   local root = handle:read("*a"):gsub("%s+$", "")
   handle:close()
@@ -878,6 +919,33 @@ xplr.fn.custom.render_claude = function(ctx)
   return { CustomList = { ui = { title = { format = " claude " } }, body = body } }
 end
 
+-- A one-line note pinned under everything else, pointing at the `h` controls popup
+-- so the keybindings are discoverable without already knowing the key. Turned off
+-- with the help-hint setting in the `,` menu, which gives the row back to the layout.
+--
+-- The note has no border because it is a single row: with the default borders
+-- (Top/Right/Bottom/Left) that one row would be nothing but the box's top edge. An
+-- empty Lua table cannot express "no borders" - `{}` serialises as a JSON object, not
+-- as an empty list, and the panel then renders blank rather than borderless - so the
+-- empty array has to come from from_json.
+local NO_BORDERS = xplr.util.from_json("[]")
+
+xplr.fn.custom.render_hint = function(_)
+  return {
+    CustomParagraph = {
+      ui = { borders = NO_BORDERS },
+      body = "\27[38;5;244m  [h] keybindings\27[0m",
+    },
+  }
+end
+
+-- 2, not 1: a panel still reserves its border frame even with borders hidden, so the
+-- body lands on the second row. That puts the note on the very last row of the screen
+-- with a blank spacer above it, which reads as a footer. 0 when the setting is off.
+local function hint_height()
+  return read_bool_setting("help-hint", true) and 2 or 0
+end
+
 xplr.fn.custom.render_layout = function(ctx)
   local root = repo_root_of(ctx.app.pwd)
   local n = 0
@@ -907,10 +975,12 @@ xplr.fn.custom.render_layout = function(ctx)
   -- history graph shrinks (down to GRAPH_MIN rows) while the file-explorer Table keeps at least
   -- TABLE_MIN rows. Only once the history is at its floor does the Table itself start to shrink.
   local GRAPH_MAX, GRAPH_MIN, TABLE_MIN = 14, 3, 10
+  local hint = hint_height()
   local graph_height = GRAPH_MAX
   local h = ctx.layout_size and ctx.layout_size.height
   if h then
-    graph_height = h - TABLE_MIN - changes_height - claude_height - 3 -- 3 = InputAndLogs (controls are the `h` popup)
+    -- 3 = InputAndLogs (controls are the `h` popup); hint = the bottom note, 0 when off
+    graph_height = h - TABLE_MIN - changes_height - claude_height - 3 - hint
     if graph_height > GRAPH_MAX then
       graph_height = GRAPH_MAX
     elseif graph_height < GRAPH_MIN then
@@ -927,6 +997,7 @@ xplr.fn.custom.render_layout = function(ctx)
             { Length = graph_height },
             { Length = claude_height },
             { Length = 3 },
+            { Length = hint },
           },
         },
         splits = {
@@ -935,6 +1006,7 @@ xplr.fn.custom.render_layout = function(ctx)
           { Dynamic = "custom.render_git_graph" },
           { Dynamic = "custom.render_claude" },
           "InputAndLogs",
+          { Dynamic = "custom.render_hint" },
         },
       },
     },
