@@ -24,6 +24,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import difflib
 
 RESET = "\x1b[0m"
@@ -116,12 +117,25 @@ def _bat_cmd(path):
 
 
 def _collect(proc, lines):
-    """Read one bat process and map its output back onto `lines`, or None if anything
-    is off - callers then fall back to flat colouring rather than mis-colour the diff."""
+    """Feed one bat process its input and map its output back onto `lines`, or None if
+    anything is off - callers then fall back to flat colouring rather than mis-colour
+    the diff.
+
+    communicate() does the writing: feeding stdin by hand and closing it before calling
+    communicate() makes communicate() raise on the closed handle, which the guard below
+    then swallowed - syntax highlighting silently vanished while everything still
+    rendered, because the flat fallback produces identical visible text. Letting
+    communicate() own stdin also avoids deadlocking on a diff larger than the pipe
+    buffer."""
     if proc is None:
         return None
     try:
-        out, _ = proc.communicate(timeout=5)
+        # Trailing newline matters: without it, a side whose last line is EMPTY loses
+        # that line (bat emits N-1 terminated lines, the split-and-pop then yields
+        # N-1), the length check below fails, and syntax highlighting silently falls
+        # back to flat - which is most multi-file diffs, since a hunk commonly ends on
+        # a blank line.
+        out, _ = proc.communicate(input="\n".join(lines) + "\n", timeout=5)
     except Exception:
         try:
             proc.kill()
@@ -138,14 +152,12 @@ def _collect(proc, lines):
 
 
 def highlight_sides(old, new, path):
-    """Syntax-colour the old and new sides, running both bat processes CONCURRENTLY.
+    """Syntax-colour the old and new sides, with both bat processes started up front.
 
-    This is an fzf --preview, so it re-runs on every arrow key in the changes browser;
-    two sequential bat spawns measured 109ms against 35ms without --syntax, which is
-    over the threshold where a keypress stops feeling instant - and the Mac's slower
-    process spawn only widens that. Started together, the second costs almost nothing.
-    Either side may be empty (a new file has no old side), and that side is skipped
-    rather than spawned."""
+    This is an fzf --preview, so it re-runs on every arrow key in the changes browser
+    and bat's startup dominates: starting the second before waiting on the first
+    overlaps that cost. Either side may be empty (a new file has no old side), and that
+    side is not spawned at all."""
     if not path:
         return None, None
     cmd = _bat_cmd(path)
@@ -156,7 +168,7 @@ def highlight_sides(old, new, path):
         if not lines:
             return None
         try:
-            p = subprocess.Popen(
+            return subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -165,19 +177,24 @@ def highlight_sides(old, new, path):
             )
         except Exception:
             return None
-        try:
-            p.stdin.write("\n".join(lines))
-            p.stdin.close()
-        except Exception:
-            try:
-                p.kill()
-            except Exception:
-                pass
-            return None
-        return p
 
     po, pn = spawn(old), spawn(new)
-    return _collect(po, old), _collect(pn, new)
+    # Collected on threads so both bat processes are fed and read at the same time.
+    # Collecting them in sequence does not overlap: communicate() owns stdin, so the
+    # second process just sits blocked on an unfed pipe until the first finishes, and
+    # the concurrency is only in the spawn.
+    out = {}
+
+    def collect(key, proc, lines):
+        out[key] = _collect(proc, lines)
+
+    to = threading.Thread(target=collect, args=("old", po, old))
+    tn = threading.Thread(target=collect, args=("new", pn, new))
+    to.start()
+    tn.start()
+    to.join(timeout=10)
+    tn.join(timeout=10)
+    return out.get("old"), out.get("new")
 
 
 def column_mask(toks, mask):
