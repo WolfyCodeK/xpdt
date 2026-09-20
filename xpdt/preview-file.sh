@@ -75,5 +75,5 @@ fzf --ansi --no-sort --exact --reverse --wrap --listen --prompt="$BASE > " \
     --bind "ctrl-v:execute-silent(echo {n} > '$MARKF')+change-prompt(select: move to end line, ctrl-y > )" \
     --bind "right:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} \"\$XPDT_PREVIEW_FILE\")+reload($RELOAD)" \
     --bind "ctrl-e:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} \"\$XPDT_PREVIEW_FILE\")+reload($RELOAD)" \
-    --bind "ctrl-y:execute-silent[sh '$HOME/.config/xpdt/copy-preview.sh' \"\$XPDT_PREVIEW_FILE\" '$MAPF' '$MARKF' {n}; ( sleep 2; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d 'change-prompt($BASE > )' ) & ]+change-prompt(copied to clipboard > )" \
+    --bind "ctrl-y:execute-silent[ if sh '$HOME/.config/xpdt/copy-preview.sh' \"\$XPDT_PREVIEW_FILE\" '$MAPF' '$MARKF' {n}; then M='copied to clipboard'; else M='no clipboard tool found'; fi; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d \"change-prompt(\$M > )\"; ( sleep 2; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d 'change-prompt($BASE > )' ) & ]" \
     < "$TMP" || true

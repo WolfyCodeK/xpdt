@@ -117,8 +117,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["g"] = {
 xplr.config.modes.builtin.default.key_bindings.on_key["s"] = {
   help = "git stash browser",
   messages = {
-    { BashExec = "sh \"$HOME/.config/xpdt/git-stash-browser.sh\"" },
-    { CallLuaSilently = "custom.invalidate_git" },
+    { CallLua = "custom.open_stash_browser" },
     "ExplorePwdAsync",
   }
 }
@@ -157,6 +156,19 @@ xplr.config.modes.builtin.default.key_bindings.on_key[","] = {
 -- Showing hidden files is a setting (the `,` menu), not a runtime toggle; unbind
 -- xplr's default `.` so it cannot flip them by accident.
 xplr.config.modes.builtin.default.key_bindings.on_key["."] = nil
+
+-- xplr's own `r` (rename) and `ctrl-d` (duplicate as) write to the filesystem with no
+-- confirmation, which quietly defeated the gate: xpdt's documented `m` rename and `a`
+-- create both ask for the two-digit code, so a single stray `r` was the one mutating
+-- key that did not. They are unbound rather than gated - `m` and `M` already cover
+-- rename and move, and nothing in xpdt duplicates a file.
+xplr.config.modes.builtin.default.key_bindings.on_key["r"] = nil
+xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-d"] = nil
+
+-- `ctrl-w` switches to a stock xplr layout, which replaces the whole custom UI -
+-- changes box, git history, the keybindings note, all of it - and reads as the app
+-- having broken. Recovering needs `ctrl-w 1`, which nothing tells you.
+xplr.config.modes.builtin.default.key_bindings.on_key["ctrl-w"] = nil
 
 xplr.config.modes.builtin.default.key_bindings.on_key["right"] = {
   help = "enter dir or open file in neovim",
@@ -852,6 +864,17 @@ end
 xplr.fn.custom.open_git_browser = function(app)
   return {
     { BashExec = "XPLR_DIR=" .. shq(app.pwd) .. ' sh "$HOME/.config/xpdt/git-log-browser.sh"' },
+    { CallLuaSilently = "custom.invalidate_git" },
+  }
+end
+
+-- `s` passes the pwd the way `enter` and `;` do. Without it the stash browser fell
+-- back to the FOCUSED path, which on launch is `.git/` (hidden files show by default
+-- and it sorts first) - and repo-root.sh correctly reports no repo from inside a git
+-- directory, so the browser exited silently and `s` looked like a dead key.
+xplr.fn.custom.open_stash_browser = function(app)
+  return {
+    { BashExec = "XPLR_DIR=" .. shq(app.pwd) .. ' sh "$HOME/.config/xpdt/git-stash-browser.sh"' },
     { CallLuaSilently = "custom.invalidate_git" },
   }
 end
