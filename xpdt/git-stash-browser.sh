@@ -9,7 +9,7 @@ DIR="${XPLR_DIR:-${XPLR_FOCUS_PATH:-$PWD}}"
 ROOT="$(sh "$X/repo-root.sh" "$DIR")"
 [ -z "$ROOT" ] && exit 0
 
-# The repo root reaches the fzf binds through the ENVIRONMENT rather than being pasted
+# The repo root reaches the fzf binds through the environment rather than being pasted
 # into their command strings - fzf re-parses each bind with a shell, so a root path
 # containing a quote or $(...) would otherwise be executed.
 XPDT_ROOT="$ROOT"

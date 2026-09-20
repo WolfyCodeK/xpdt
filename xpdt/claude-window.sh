@@ -27,6 +27,11 @@ fi
 # when we are not in a repo, which claude-status.sh treats as "no current repo".
 ROOT="$(sh "$X/repo-root.sh" "$PWD")"
 [ -z "$ROOT" ] && ROOT="$PWD"
+# The root reaches the refresh bind through the ENVIRONMENT, not its command string:
+# fzf re-parses each bind with a shell, so a directory named `a$(cmd)b` executed on
+# the first press of `r`. Same pattern as diff-view.sh's XPDT_CHGPOS.
+XPDT_CLAUDE_ROOT="$ROOT"
+export XPDT_CLAUDE_ROOT
 
 BODY=$(sh "$X/claude-status.sh" "$ROOT" full)
 if [ -z "$BODY" ]; then
@@ -40,4 +45,4 @@ fi
 # repaints, matching how the settings menu reloads.
 printf '%s\n' "$BODY" | sh "$X/popup.sh" \
   "claude sessions      [r] refresh    [←/q] close" \
-  "r:reload-sync(sh \"$X/claude-status.sh\" \"$ROOT\" full)"
+  "r:reload-sync(sh \"$X/claude-status.sh\" \"\$XPDT_CLAUDE_ROOT\" full)"

@@ -9,7 +9,7 @@ if [ -z "$ROOT" ] || [ -z "$FILE" ]; then exit 0; fi
 printf '\033[2J\033[H' > /dev/tty 2>/dev/null
 X="$HOME/.config/xpdt"
 
-# Root, group and file reach the fzf binds through the ENVIRONMENT rather than being
+# Root, group and file reach the fzf binds through the environment rather than being
 # pasted into their command strings: fzf re-parses each bind with a shell, so a path
 # containing a quote or $(...) would otherwise be executed - and a filename with a
 # space would split into two arguments.

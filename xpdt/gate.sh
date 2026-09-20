@@ -1,7 +1,7 @@
 #!/bin/sh
 # xpdt confirmation gate: a per-action "type 2 random digits to confirm" guard,
 # on by default for every mutating action. State lives in ~/.config/xpdt/.gate-config
-# as key=1/0 lines; an absent file or key reads as ON, so the gate is enabled by
+# as key=1/0 lines; an absent file or key reads as on, so the gate is enabled by
 # default (including immediately after install, before the file is written).
 #
 # Every mutating action script calls:  sh gate.sh confirm <action> "<message>"
@@ -33,8 +33,8 @@ EOF
 
 # Neovim intellisense: the languages / frameworks you can turn on (key|label).
 # Each maps to an LSP server nvim starts (see nvim/init.lua SERVERS, same keys);
-# the toggle only enables it - you install the few servers you want yourself, so
-# it stays lightweight. All default OFF.
+# the toggle enables it and Neovim installs that one server via Mason, so
+# it stays lightweight. All default off.
 lsp_rows() {
   cat <<'EOF'
 lua|Lua
@@ -65,7 +65,7 @@ tokyonight|Tokyo Night
 EOF
 }
 
-# Width of the `git history` panel in terminal COLUMNS (key|label). Like the theme this
+# Width of the `git history` panel in terminal columns (key|label). Like the theme this
 # is a radio, not a toggle. `off` keeps the old behaviour - the panel spans the full
 # width of the window. A width wider than the terminal is ignored.
 histwidth_rows() {
@@ -79,7 +79,7 @@ EOF
 }
 
 get() { # get KEY -> 1 (on) or 0 (off); `theme` returns the theme name (default
-        # monokai) and `history-line-length` a width or `off`.
+        # monokai) and `history-width` a width or `off`.
         # Confirmation actions and show-hidden default on; claude-integration and the
         # lsp-* language toggles are opt-in (off).
   if [ "$1" = theme ]; then
@@ -110,7 +110,7 @@ get() { # get KEY -> 1 (on) or 0 (off); `theme` returns the theme name (default
 # The factory settings, in one place: the installer seeds these into a fresh
 # .gate-config (`gate.sh defaults`) and the menu's "reset to defaults" row restores
 # exactly these, so the two can never drift apart. The nvim-* and lsp-* keys are
-# deliberately absent - get() defaults them off, so leaving them out IS the default,
+# deliberately absent - get() defaults them off, so leaving them out is the default,
 # and rewriting this file is what clears any the user had turned on.
 defaults() {
   echo "enabled=1"
@@ -146,7 +146,7 @@ required() { # exit 0 if ACTION needs the code (master on AND this action on)
 
 # Prompt for the 2-digit code. Returns 0 only on an exact match, and fails closed if
 # there is no tty or the code comes out malformed. Used by `confirm` (when the action
-# is gated) and unconditionally by `reset`. It RETURNS rather than exits, so a caller
+# is gated) and unconditionally by `reset`. It returns rather than exits, so a caller
 # can do work after a successful confirm.
 do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
   msg="$1"
@@ -171,8 +171,13 @@ do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
   c=$(awk 'BEGIN { srand(); print int(10 + rand() * 90) }')
   # Fail closed if that somehow did not produce exactly two digits (never confirm blind).
   case "$c" in [1-9][0-9]) ;; *) printf 'Cancelled.\n' > /dev/tty; return 1 ;; esac
-  { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
+  # Flush BEFORE the prompt is drawn, not after. Flushing afterwards discarded whatever
+  # was typed during the ~20-40ms python spawn, so answering quickly left `read` waiting
+  # for a keystroke it had already thrown away - the prompt sat there and the gate hung.
+  # Flushing first also matches the intent: drop the burst that arrived before the
+  # prompt existed, then read the answer the user gives to the prompt they can see.
   python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
+  { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
   IFS= read -r a < /dev/tty || { printf '\n' > /dev/tty; return 1; }
   [ "$a" = "$c" ] && return 0
   printf 'Cancelled.\n' > /dev/tty; sleep 0.5; return 1
@@ -213,11 +218,11 @@ case "${1:-}" in
   required) required "$2" ;;
   defaults) defaults ;;
   reset)
-    # Reset ALWAYS asks for the code, whatever the gate settings say - unlike every
+    # Reset always asks for the code, whatever the gate settings say - unlike every
     # other action it has no per-action toggle and ignores the master switch. It is
     # destructive, not undoable, and it wipes the very toggles that would otherwise
     # govern it, so "master switch off" must not turn it into a single keypress.
-    do_confirm "Reset ALL xpdt settings to their defaults?
+    do_confirm "Reset all xpdt settings to their defaults?
 This clears the gate toggles, the theme, the Neovim options and the
 intellisense languages. Your search scope is left alone." || exit 1
     tmp="$CFG.$$"
@@ -238,8 +243,8 @@ intellisense languages. Your search scope is left alone." || exit 1
     # Rows are "key  checkbox  label"; field 1 (the key) is hidden by fzf's
     # --with-nth and used only by the toggle bind. Section-header and blank spacer
     # rows use the key `#h` (ignored by the toggle), and a blank line separates each
-    # group, so the three - app settings, Neovim intellisense, and the 2-digit-gated
-    # actions the master switch governs - read as clearly separate sections.
+    # group, so the groups - display settings, Neovim, theme, git history,
+    # intellisense, and the 2-digit-gated actions - read as clearly separate sections.
     hdr() { printf '#h \033[1;38;5;75m%s\033[0m\n' "$1"; }
     sub() { printf '#h \033[38;5;245m%s\033[0m\n' "$1"; }
     gap() { printf '#h \n'; }

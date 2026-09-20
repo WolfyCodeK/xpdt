@@ -1,5 +1,5 @@
 #!/bin/sh
-# SOURCED, not executed:  . "$X/tmpflag.sh"
+# sourced, not executed:  . "$X/tmpflag.sh"
 #
 # Defines $XPDT_LEFT_EXIT, the flag file that tells flush-input.sh the program that
 # just closed was left via a (possibly still-held) `left` key, so it should drain the

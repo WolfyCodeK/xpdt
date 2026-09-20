@@ -7,7 +7,7 @@ ROOT="$(sh "$X/repo-root.sh" "$DIR")"
 
 REFF=$(mktemp)   # branch/ref being viewed; empty = current HEAD
 trap 'rm -f "$REFF"' EXIT INT TERM
-# The repo root and the ref-state file reach the fzf binds through the ENVIRONMENT
+# The repo root and the ref-state file reach the fzf binds through the environment
 # rather than being pasted into their command strings: fzf re-parses each bind with a
 # shell, so a path containing a quote or $(...) would otherwise be executed.
 XPDT_ROOT="$ROOT"
@@ -33,7 +33,7 @@ while : ; do
 
   # core.quotePath=false keeps a non-ASCII filename raw; --name-status is TAB-separated,
   # so the file list below is read with a tab delimiter and {-1} (the last field, which
-  # is the NEW name for a rename). With fzf's default whitespace delimiter, {-1} took
+  # is the new name for a rename). With fzf's default whitespace delimiter, {-1} took
   # only the text after the last space, so any path with a space opened the wrong file.
   FILES=$(git -c core.quotePath=false -C "$ROOT" diff-tree --no-commit-id --name-status -r "$HASH")
   NFILES=$(printf '%s\n' "$FILES" | grep -c .)

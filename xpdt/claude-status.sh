@@ -1,5 +1,5 @@
 #!/bin/sh
-# Passive Claude Code session panel (the `claude-integration` setting). Shows ALL
+# Passive Claude Code session panel (the `claude-integration` setting). Shows all
 # your recent Claude Code sessions across every repo - not just the current one -
 # grouped by repo, newest/busiest first, e.g.:
 #
@@ -265,7 +265,7 @@ for repo, rs in sorted(groups.items(), key=group_key):
             meta_col.append(FNT + r["model"] + Z)
         if FULL:
             # The window has room: give the title the whole line (wrapped, never cut),
-            # put the metadata underneath, and show the current task for EVERY session
+            # put the metadata underneath, and show the current task for every session
             # that has one rather than just the top couple.
             for i, seg in enumerate(wrap(r["name"], INNER - 4, "    ")):
                 out.append(("  " + dot + Z + " " if i == 0 else "") + col + seg + Z)

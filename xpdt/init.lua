@@ -181,7 +181,7 @@ xplr.config.modes.builtin.default.key_bindings.on_key["/"] = {
         X="$HOME/.config/xpdt"
         . "$X/tmpflag.sh"
         # The scope dir, the launch dir and the scope-state file are passed to the
-        # helpers through the ENVIRONMENT, not baked into the fzf command strings.
+        # helpers through the environment, not baked into the fzf command strings.
         # Those strings are re-parsed by a shell for every bind, so an embedded path
         # containing a quote or $(...) - i.e. a directory name - would be executed.
         XPDT_SCOPE_FILE="$X/.search-scope"; [ -f "$XPDT_SCOPE_FILE" ] || echo here > "$XPDT_SCOPE_FILE"
@@ -328,7 +328,7 @@ local claude_cache = {}
 
 -- Git state is repo-wide and cached across directory navigation (it is dropped
 -- explicitly by invalidate_git after an xpdt action, not on every directory change).
--- GIT_TTL is the backstop for changes made OUTSIDE xpdt (e.g. edits in another
+-- GIT_TTL is the backstop for changes made outside xpdt (e.g. edits in another
 -- terminal): the panels catch up within this many seconds even without an action.
 -- Reaching the TTL no longer costs a frame - it only schedules a background refresh,
 -- so the panels go a little stale rather than the whole app going unresponsive.
@@ -336,9 +336,9 @@ local GIT_TTL = 10
 local CLAUDE_TTL = 5
 local xplrignore_active = false
 
--- Quote a value for POSIX sh. Paths reach the helper scripts as command STRINGS
+-- Quote a value for POSIX sh. Paths reach the helper scripts as command strings
 -- (neither io.popen nor xplr's BashExec takes an argument vector), so anything
--- interpolated into one MUST go through this: a directory named `x$(cmd)` or
+-- interpolated into one must go through this: a directory named `x$(cmd)` or
 -- ``x`cmd` `` would otherwise be executed by the shell simply because xpdt was
 -- pointed at it (render_layout resolves the repo root on every render). Single
 -- quotes make the shell treat every byte literally; an embedded ' is closed,
@@ -371,7 +371,7 @@ end
 -- handed to the script as an argument, so the two sides never have to agree on a hash
 -- implementation - Lua names the file, the script writes where it is told. It lives
 -- under the cache dir and not in ~/.config/xpdt because that directory is a symlink
--- INTO the xpdt repo, where cache files would surface as untracked changes.
+-- into the xpdt repo, where cache files would surface as untracked changes.
 local state_dir = (os.getenv("XDG_CACHE_HOME") or ((os.getenv("HOME") or "") .. "/.cache")) .. "/xpdt"
 
 local function state_base(root)
@@ -390,7 +390,7 @@ end
 
 local refresh_requested = {}
 
--- Start a refresh and do NOT wait for it. This is what keeps git off the render path:
+-- Start a refresh and do not wait for it. This is what keeps git off the render path:
 -- the trailing & makes the shell fork the job and exit, so closing the handle waits
 -- only for that short-lived sh, never for git. The redirections matter - without them
 -- the detached job keeps the pipe open and the close blocks on it, which would put the
@@ -449,7 +449,7 @@ local function repo_root_of(dir)
 
   -- Fast path: inherit the parent's answer, which saves the one spawn per directory
   -- that used to be paid on the way into every new folder. This is exact, not a
-  -- guess: repo-root.sh anchors on the DEEPEST symlinked path component, and adding
+  -- guess: repo-root.sh anchors on the deepest symlinked path component, and adding
   -- one more non-symlink component cannot change which component that is, so the
   -- anchor - and therefore the repo it resolves to - is identical to the parent's.
   -- Two cases would break that and so still run the script: a symlinked leaf, which
@@ -483,7 +483,16 @@ local function repo_root_of(dir)
   end
 
   local handle = io.popen('sh "$HOME/.config/xpdt/repo-root.sh" ' .. shq(dir) .. " 2>/dev/null")
-  local root = handle:read("*a"):gsub("%s+$", "")
+  -- io.popen returns nil when the fork fails (process limit, out of memory). Indexing
+  -- it raised, and because render_layout is the top-level Dynamic layout that error
+  -- replaced the ENTIRE screen with a debug string. Nothing is cached on this path, so
+  -- the next render simply tries again.
+  if not handle then
+    return false
+  end
+  -- Only the trailing newline is stripped: %s+$ would also eat a real trailing space
+  -- in a directory name.
+  local root = handle:read("*a"):gsub("\n$", "")
   handle:close()
   if root == "" then
     root = false
@@ -645,7 +654,22 @@ local function load_state(root, allow_blocking)
   end
 
   if not state then
-    return EMPTY_STATE
+    -- Cache the miss rather than returning EMPTY_STATE uncached. Uncached, every caller
+    -- re-entered the blocking branch above, so a repo whose refresh keeps failing - a
+    -- corrupt index, another window holding the lock, an unwritable cache dir - paid one
+    -- blocking git-state.sh PER VISIBLE ROW on every frame: the exact stall 1.41.1
+    -- removed, multiplied by the row count. Cached, the `checked == now` gate and
+    -- request_refresh's own throttle bound it to one attempt per root every 2s.
+    state = {
+      ts = 0,
+      dirty = {},
+      entries = {},
+      ignored = {},
+      ignored_dirs = {},
+      branch = "",
+      ab = "",
+      lines = {},
+    }
   end
   if (now - state.ts) >= GIT_TTL then
     request_refresh(root)
@@ -794,23 +818,28 @@ end
 -- Called after an xpdt action that can change git state (stage / commit / discard /
 -- stash / checkout / pull / undo / cherry-pick / create / delete / move), so the M
 -- column, changes box, history graph and author column refresh on the next render.
--- Navigation does NOT invalidate: git status/log are repo-wide, so this is no longer
+-- Navigation does not invalidate: git status/log are repo-wide, so this is no longer
 -- run on every directory change - moving between directories used to re-run
 -- `git status` over the whole worktree each time, the main "exploring directories"
 -- lag on a big repo. The caches now persist across navigation (see the TTLs) and are
 -- only dropped here, on an actual change.
-xplr.fn.custom.invalidate_git = function()
+xplr.fn.custom.invalidate_git = function(app)
   -- Refresh synchronously here rather than leaving it to the next render: this runs
   -- after an action the user just took (where a short pause is expected and was
   -- already being paid), and it means the frame drawn straight afterwards shows the
   -- new state instead of one stale frame. Navigation never reaches this path.
-  local roots = {}
+  --
+  -- Only the CURRENT repo is refreshed. git_state_cache accumulates an entry for every
+  -- repo visited this session, and blocking on all of them made each action cost one
+  -- full `git status --ignored` per repo browsed - about a second more for every extra
+  -- repo, for snapshots the next frame will not even draw. The rest are dropped so they
+  -- re-read lazily when they are next rendered.
+  local current = app and app.pwd and repo_root_of(app.pwd) or nil
   for key in pairs(git_state_cache) do
-    roots[#roots + 1] = key
     git_state_cache[key] = nil
   end
-  for _, root in ipairs(roots) do
-    refresh_blocking(root)
+  if current then
+    refresh_blocking(current)
   end
   for key in pairs(git_author_cache) do
     git_author_cache[key] = nil
@@ -918,7 +947,7 @@ local function claude_indicator(root)
   return text
 end
 
--- Trim a history row to `max` VISIBLE characters. The rows carry ANSI (the hollow
+-- Trim a history row to `max` visible characters. The rows carry ANSI (the hollow
 -- yellow dot on an unpushed commit), so escape sequences are stepped over rather than
 -- counted, and UTF-8 is advanced a whole character at a time so a multi-byte glyph is
 -- never split down the middle. The result is closed with a reset, and the ellipsis
@@ -979,7 +1008,15 @@ end
 -- full width, which is what xpdt has always done. Anything else is a column count from
 -- the `,` menu; gate.sh validates it on the way out, so a junk config reads as off.
 local function history_width()
-  return tonumber(read_value_setting("history-width", "off")) or 0
+  -- Floored to an integer: a Lua float reaches xplr as a Number rather than an Integer,
+  -- and ratatui's Constraint::Length(u16) then fails to deserialize, which blanks the
+  -- whole UI. gate.sh only ever writes the validated values, but a hand-edited
+  -- `history-width=80.5` should degrade, not take the screen down.
+  local n = tonumber(read_value_setting("history-width", "off"))
+  if not n or n < 1 then
+    return 0
+  end
+  return math.floor(n)
 end
 
 xplr.fn.custom.render_git_graph = function(ctx)
@@ -1003,10 +1040,10 @@ xplr.fn.custom.render_git_graph = function(ctx)
   end
   -- When the panel has been narrowed, trim the rows to the width it actually got minus
   -- its two border columns, so a cut row ends in an ellipsis instead of being clipped
-  -- mid-word at the border. The renderer reads its OWN layout_size rather than the
+  -- mid-word at the border. The renderer reads its own layout_size rather than the
   -- setting, so it is always right even where the requested width was clamped.
   --
-  -- Trimming builds a NEW table: `body` may still be the snapshot's own `lines`, which
+  -- Trimming builds a new table: `body` may still be the snapshot's own `lines`, which
   -- is shared with the cache, and trimming it in place would corrupt it for every
   -- later render (and make a width change look permanent until the next git refresh).
   local width = 0
@@ -1042,10 +1079,10 @@ end
 -- so the keybindings are discoverable without already knowing the key. Turned off
 -- with the help-hint setting in the `,` menu, which gives the row back to the layout.
 --
--- The text is the panel's TITLE, not its body, and that is the only way to get it onto
+-- The text is the panel's title, not its body, and that is the only way to get it onto
 -- a single row. xplr's block() always attaches a title span (an empty one when the
 -- panel gives no title), and ratatui reserves the top row of a block for its title
--- even when no borders are drawn - so a custom panel's BODY can never reach row 1, and
+-- even when no borders are drawn - so a custom panel's body can never reach row 1, and
 -- a body-based note needs two rows with the first one blank. A title renders on
 -- exactly that reserved row, so putting the text there makes the panel genuinely one
 -- row tall. Borders still have to be cleared, and an empty Lua table cannot express
@@ -1129,6 +1166,25 @@ xplr.fn.custom.render_layout = function(ctx)
   local logs = logs_height(ctx)
   local graph_height = GRAPH_MAX
   local h = ctx.layout_size and ctx.layout_size.height
+
+  -- The boxes above also have to fit. Only graph_height was clamped against the
+  -- terminal, so a dirty repo in a short window demanded more rows than existed:
+  -- ratatui weights Min above Length, which pinned the Table to its 1-row minimum and
+  -- left the file listing with ZERO visible rows (draw_table subtracts a 3-row header
+  -- and chrome). On a 24-row terminal that began at about 14 modified files - an
+  -- ordinary working state. The changes and claude boxes now yield first, in that
+  -- order, so the listing always keeps TABLE_MIN.
+  if h then
+    local spare = h - TABLE_MIN - GRAPH_MIN - logs - hint
+    if claude_height > 0 and claude_height > spare then
+      claude_height = spare > 0 and spare or 0
+    end
+    local left = spare - claude_height
+    if changes_height > left then
+      changes_height = left > 0 and left or 0
+    end
+  end
+
   if h then
     -- logs = InputAndLogs, 0 when hidden (controls are the `h` popup);
     -- hint = the bottom note, 0 when off
@@ -1139,7 +1195,7 @@ xplr.fn.custom.render_layout = function(ctx)
       graph_height = GRAPH_MIN
     end
   end
-  -- Capping the panel's WIDTH means putting it in a horizontal split of its own row and
+  -- Capping the panel's width means putting it in a horizontal split of its own row and
   -- letting `Nothing` take the rest, since a vertical split's rows are always full
   -- width. Skipped when the terminal is already narrower than the requested width, so a
   -- small window is never given a pointless empty column.
@@ -1153,7 +1209,7 @@ xplr.fn.custom.render_layout = function(ctx)
         splits = {
           { Dynamic = "custom.render_git_graph" },
           -- Not the `Nothing` layout: xplr's draw_nothing renders an empty paragraph
-          -- inside the DEFAULT block, which has all four borders, so it paints a second
+          -- inside the default block, which has all four borders, so it paints a second
           -- empty box beside the panel. A borderless static paragraph leaves the space
           -- genuinely blank.
           { Static = { CustomParagraph = { ui = { borders = NO_BORDERS }, body = "" } } },

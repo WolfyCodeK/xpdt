@@ -31,7 +31,7 @@ case "$CHOICE" in
       pause
       exit 0
     fi
-    # Sorted with git's OWN version sort, descending, so the largest numbers are at the
+    # Sorted with git's own version sort, descending, so the largest numbers are at the
     # top (feature-10 above feature-9, v1.10.0 above v1.9.0) and multi-digit numbers
     # order correctly - a plain reverse sort would put 9 above 10. git does the sort, so
     # this does not rely on `sort -V`, which BSD/macOS `sort` may not have. Locals first,

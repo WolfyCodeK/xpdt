@@ -3,7 +3,7 @@
 # help (help.sh), the `ctrl-h` neovim cheat sheet (nvim-cheatsheet.sh) and the `c`
 # Claude window (claude-window.sh).
 # Arrows / page keys / mouse wheel scroll; q, esc, left, h or ctrl-h close it.
-# $1 is the header title. $2 is an OPTIONAL extra --bind spec (e.g. a refresh key);
+# $1 is the header title. $2 is an optional extra --bind spec (e.g. a refresh key);
 # it is added after the close binds, so a caller cannot accidentally unbind the
 # closing keys. Content is read from stdin.
 EXTRA="${2:-}"

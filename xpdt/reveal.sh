@@ -2,14 +2,14 @@
 # Show a path in the OS file manager - "reveal in Finder", "show in Explorer".
 # Arg: PATH (absolute). Bound to ctrl-o in the `/` and `\` searches.
 #
-# A file is revealed AND selected where the platform can do that; a directory is just
+# A file is revealed and selected where the platform can do that; a directory is just
 # opened. Per platform:
 #
 #   macOS   `open -R FILE` reveals and selects it in Finder; `open DIR` opens a window
 #           on the directory itself.
 #   WSL2    `explorer.exe /select,<windows path>`, with `wslpath -w` converting the
 #           Linux path (current Windows handles the \\wsl.localhost\... form). Note
-#           explorer.exe exits NON-ZERO even when it worked, so its status is ignored
+#           explorer.exe exits non-zero even when it worked, so its status is ignored
 #           deliberately - checking it would report a false failure every time.
 #   Linux   there is no standard "reveal", so: a known file manager's own select flag
 #           if one is installed, else `xdg-open` on the containing directory (which
@@ -17,9 +17,9 @@
 #
 # Over plain SSH there is no desktop to open anything in, so with neither $DISPLAY nor
 # $WAYLAND_DISPLAY it says so, rather than hanging or looking like a dead key. Opening
-# a file manager does not change anything, so this is NOT behind the confirmation gate.
+# a file manager does not change anything, so this is not behind the confirmation gate.
 P="$1"
-# Braced so the group's stderr is /dev/null BEFORE the >/dev/tty redirect is applied:
+# Braced so the group's stderr is /dev/null before the >/dev/tty redirect is applied:
 # a failed redirect is reported by the shell to the stderr in force at that point, so
 # `> /dev/tty 2>/dev/null` would still leak the error when there is no controlling tty.
 note() { { printf '\n  %s\n' "$1" > /dev/tty; } 2>/dev/null; sleep 1.4; }

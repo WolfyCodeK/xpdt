@@ -17,7 +17,7 @@ RELOAD=$(printf 'reload-sync(sh %s/gate.sh menu)+pos(%s)' "$X" "$POS")
 case "${1:-}" in
   ''|'#'*) : ;;
   __reset__)
-    # Reset must run as an fzf `execute` ACTION rather than inline here. This script
+    # Reset must run as an fzf `execute` action rather than inline here. This script
     # is a `transform`, so its stdout is parsed by fzf as a list of actions and it is
     # never handed the terminal - printing a confirmation prompt from here would be
     # read as actions and the read would have no tty. `execute` does hand over the
