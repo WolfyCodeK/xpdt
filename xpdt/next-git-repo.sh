@@ -33,13 +33,13 @@ else
 fi
 [ -z "$REPOS" ] && exit 0
 
-printf '%s\n' "$REPOS" | awk -v cur="$CURREPO" '
+printf '%s\n' "$REPOS" | CURREPO="$CURREPO" awk '
   { r[NR] = $0 }
   END {
     n = NR
     if (n == 0) exit
     idx = 0
-    for (i = 1; i <= n; i++) if (r[i] == cur) idx = i
+    for (i = 1; i <= n; i++) if (r[i] == ENVIRON["CURREPO"]) idx = i
     if (idx == 0) print r[1]        # not inside any of them -> first repo
     else print r[(idx % n) + 1]     # next, wrapping around
   }'

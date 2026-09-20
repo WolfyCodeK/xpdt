@@ -22,7 +22,9 @@ P="$1"
 # Braced so the group's stderr is /dev/null before the >/dev/tty redirect is applied:
 # a failed redirect is reported by the shell to the stderr in force at that point, so
 # `> /dev/tty 2>/dev/null` would still leak the error when there is no controlling tty.
-note() { { printf '\n  %s\n' "$1" > /dev/tty; } 2>/dev/null; sleep 1.4; }
+# Clears first: without it a repeated `ctrl-o` stacked a fresh copy of the message
+# under the last one (the 1.9.3 fix, which git-stash-op.sh already does).
+note() { { printf '\033[2J\033[H\n  %s\n' "$1" > /dev/tty; } 2>/dev/null; sleep 1.4; }
 # Detach GUI launches: some file managers stay in the foreground, which would block
 # fzf until the window is closed. The subshell double-detaches without nohup.out.
 spawn() { ( "$@" >/dev/null 2>&1 & ) ; }

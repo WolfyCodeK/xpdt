@@ -6,7 +6,7 @@
 ROOT="$1"; GROUP="$2"; FILE="$3"
 if [ -z "$ROOT" ] || [ -z "$FILE" ]; then exit 0; fi
 # Clear leftover output (e.g. confirmation prompts) before this browser paints.
-printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+{ printf '\033[2J\033[H' > /dev/tty; } 2>/dev/null
 X="$HOME/.config/xpdt"
 
 # Root, group and file reach the fzf binds through the environment rather than being

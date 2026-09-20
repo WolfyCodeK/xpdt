@@ -19,7 +19,7 @@ export XPDT_ROOT
 LIST="sh \"$X/git-stash-list.sh\" \"\$XPDT_ROOT\""
 
 NENTRIES=$(git -C "$ROOT" stash list 2>/dev/null | grep -c .)
-TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
+TERMH=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $1}')
 [ -z "$TERMH" ] && TERMH=$(tput lines 2>/dev/null)
 [ -z "$TERMH" ] && TERMH=40
 MAXLIST=15
@@ -34,7 +34,10 @@ pv() { n=$1; [ "$n" -gt "$MAXLIST" ] && n=$MAXLIST; [ "$n" -lt 1 ] && n=1; p=$((
 PW=$(pv "$NENTRIES")
 
 VIEW="git -C \"\$XPDT_ROOT\" stash show -p --color=never {1} | python3 -S \"$X/diff-words.py\""
-PREVIEW="[ -n {1} ] && $VIEW || echo 'No stashes. Press n to stash your current changes.'"
+# No `|| echo <hint>` fallback: fzf runs neither the preview command nor the load
+# event on an empty list, so the hint was unreachable - the pane is simply blank, the
+# same empty state as the changes browser.
+PREVIEW="[ -n {1} ] && $VIEW"
 RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXLIST ] && n=$MAXLIST; [ \$n -lt 1 ] && n=1; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
 
 eval "$LIST" \

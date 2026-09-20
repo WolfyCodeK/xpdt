@@ -2,6 +2,7 @@
 ._*
 .search-scope
 .gate-config
+.gate-config.*
 *.swp
 
 # One-time bootstrap instructions for publishing this repo; not part of the config

@@ -51,5 +51,5 @@ finally:
     os.close(fd)
 ' 2>/dev/null || true
 else
-  python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' < /dev/tty 2>/dev/null || true
+  { python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' < /dev/tty; } 2>/dev/null || true
 fi

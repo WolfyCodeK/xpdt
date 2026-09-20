@@ -15,8 +15,8 @@ ROOT="$1"; WANT="$2"
 # Newlines are parked on \001 so a path containing one cannot split a record; such
 # paths are dropped by git-changes-list.sh and so never reach here anyway.
 git -C "$ROOT" status --porcelain -z 2>/dev/null \
-  | tr '\n' '\001' \
-  | tr '\0' '\n' \
+  | LC_ALL=C tr '\n' '\001' \
+  | LC_ALL=C tr '\0' '\n' \
   | awk -v want="$WANT" '
       take { if ($0 != "") print $0; take = 0; next }
       length($0) > 3 {

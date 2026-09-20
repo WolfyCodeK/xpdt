@@ -925,10 +925,6 @@ xplr.fn.custom.apply_xplrignore = function(app)
   return msgs
 end
 
-xplr.fn.custom.clear_xplrignore_flag = function()
-  xplrignore_active = false
-end
-
 xplr.fn.custom.render_git_changes = function(ctx)
   local root = repo_root_of(ctx.app.pwd)
   if not root then
@@ -1045,7 +1041,14 @@ end
 xplr.fn.custom.render_git_graph = function(ctx)
   local root = repo_root_of(ctx.app.pwd)
   if not root then
-    return { CustomList = { ui = { title = { format = " git history " } }, body = {} } }
+    -- Say why it is empty rather than leaving a large blank bordered box: the changes
+    -- box disappears entirely outside a repo, so a silent empty one here read as broken.
+    return {
+      CustomList = {
+        ui = { title = { format = " git history " } },
+        body = { "\27[38;5;244m  not a git repository\27[0m" },
+      },
+    }
   end
   local cached = load_state(root, true)
   local title = " git history "
