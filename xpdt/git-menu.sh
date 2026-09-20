@@ -18,7 +18,7 @@ CHOICE=$(printf '%s\n' \
 
 case "$CHOICE" in
   'status')
-    git -C "$ROOT" -c color.status=always status | less -R
+    git -C "$ROOT" -c color.status=always status | sh "$HOME/.config/xpdt/popup.sh" "git status    [q/esc/left] close"
     ;;
   'fetch origin')
     printf '\n'

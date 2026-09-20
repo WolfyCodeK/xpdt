@@ -4,8 +4,10 @@
 # list is --disabled --no-input and the letters are actions, not filter text.
 # Mirrors git-changes-browser.sh (list resize on load, reload after each action).
 X="$HOME/.config/xpdt"
-DIR="${XPLR_DIR:-${XPLR_FOCUS_PATH:-$PWD}}"
-[ -f "$DIR" ] && DIR="$(dirname "$DIR")"
+# The pwd, not the focused entry: a focused `.git/` (or a sibling repo folder) used to
+# decide which repo the stash browser opened, which made it disagree with `enter`,
+# `;` and `g`. Matches git-menu.sh.
+DIR="${XPLR_DIR:-$PWD}"
 ROOT="$(sh "$X/repo-root.sh" "$DIR")"
 [ -z "$ROOT" ] && exit 0
 
@@ -48,5 +50,5 @@ eval "$LIST" \
       --bind "d:execute([ -n {1} ] && sh \"$X/git-stash-op.sh\" \"\$XPDT_ROOT\" drop {1})+reload($LIST)" \
       --bind "n:execute(sh \"$X/git-stash-op.sh\" \"\$XPDT_ROOT\" push)+reload($LIST)" \
       --bind "x:execute(sh \"$X/git-stash-op.sh\" \"\$XPDT_ROOT\" clear)+reload($LIST)" \
-      --bind "right:execute([ -n {1} ] && $VIEW | less -R)" \
+      --bind "right:execute([ -n {1} ] && $VIEW | sh \"$X/popup.sh\" 'stash diff    [q/esc/left] close')" \
       --bind 'enter:ignore,left:abort' || true

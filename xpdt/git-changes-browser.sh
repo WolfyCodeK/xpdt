@@ -53,7 +53,12 @@ UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim -- {3..}"
 # the preview sat empty. --no-index against /dev/null gives it a real diff - every line
 # an addition - so a new file previews as pure green like any other add. It exits 1 when
 # the files differ (always, here), hence the `|| true`. Tracked entries are unchanged.
-DIFF="{ if [ {1} = staged ]; then git -C \"\$XPDT_ROOT\" diff --cached --color=never -- {3..}; elif [ {2} = '?' ]; then git -C \"\$XPDT_ROOT\" diff --no-index --color=never -- /dev/null {3..} || true; else git -C \"\$XPDT_ROOT\" diff --color=never -- {3..}; fi; } | python3 -S \"$X/diff-words.py\" --syntax {3..}"
+#
+# A wholly-untracked DIRECTORY is collapsed by porcelain to a single `dir/` entry, and
+# --no-index on it made git resolve /dev/null relative to the directory and print
+# `error: Could not access 'dir/null'` into the preview. Those get a file listing
+# instead, which is what you actually want to see before staging a new folder.
+DIFF="{ if [ {1} = staged ]; then git -C \"\$XPDT_ROOT\" diff --cached --color=never -- {3..}; elif [ {2} = '?' ] && [ -d \"\$XPDT_ROOT\"/{3..} ]; then printf 'untracked directory\\n\\n'; ( cd \"\$XPDT_ROOT\" && find {3..} -type f | sort | head -200 ); elif [ {2} = '?' ]; then git -C \"\$XPDT_ROOT\" diff --no-index --color=never -- /dev/null {3..} || true; else git -C \"\$XPDT_ROOT\" diff --color=never -- {3..}; fi; } | python3 -S \"$X/diff-words.py\" --syntax {3..}"
 # Re-run on every (re)load so the list keeps matching the current change count.
 RESIZE="n=\$FZF_TOTAL_COUNT; [ \$n -gt $MAXFILES ] && n=$MAXFILES; p=\$(($TERMH - n - $OVER)); [ \$p -lt 3 ] && p=3; echo \"change-preview-window(down,\$p,wrap)\""
 

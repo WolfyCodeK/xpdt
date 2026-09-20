@@ -112,10 +112,14 @@ Ubuntu 24.04, Debian 13, Fedora 39 and newer). On older systems `install.sh`
 builds xplr 1.1.0 from source with Rust ([rustup.rs](https://rustup.rs)) when
 `cargo` is available. macOS is unaffected.
 
-Two features are macOS-only and simply do nothing elsewhere: clipboard copy
-(`pbcopy`) and delete-to-Trash (Finder). Everything else is portable - including
-the `/` file search and the preview's external-change auto-reload, which both
-detect the GNU vs BSD `stat` format flag rather than assuming macOS.
+Both of the features that used to be macOS-only now work everywhere. Clipboard
+copy takes the first tool that exists (`pbcopy`, `wl-copy`, `xclip`, `clip.exe`)
+and says so when there is none, rather than reporting a copy that did not happen;
+delete prefers the platform's Trash (Finder, then `trash-put`, then `gio trash`)
+and only falls back to an unrecoverable delete when no trash tool exists, which
+the confirmation prompt tells you. The `/` file search and the preview's
+external-change auto-reload detect the GNU vs BSD `stat` format flag rather than
+assuming macOS.
 
 ## Credits and license
 
