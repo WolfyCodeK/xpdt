@@ -15,7 +15,7 @@ X="$HOME/.config/xpdt"
 GATE="$X/gate.sh"
 flush() { python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' 2>/dev/null; }
 
-# Prompt for a line WITH line editing (arrows / backspace / ctrl-a/e), via
+# Prompt for a line with line editing (arrows / backspace / ctrl-a/e), via
 # prompt-prefill.py's python readline. A bare `read` has none, so arrow keys arrive
 # as their raw escape bytes (^[[D, ^[[B, ...) and print into the name instead of
 # moving the cursor; bash's `read -e` would work but is unavailable on macOS's bash

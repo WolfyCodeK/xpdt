@@ -9,3 +9,10 @@ SETUP.md
 
 # python bytecode caches
 __pycache__/
+
+# Private, machine-local working notes. Also in .git/info/exclude, but that is not
+# cloned - without this line a fresh clone (or the Mac) would stage it on `git add -A`.
+CLAUDE.md
+
+# ruff caches (ruff writes its own ignore inside, but do not rely on that)
+.ruff_cache/

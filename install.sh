@@ -49,15 +49,17 @@ EOF
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --prefix) PREFIX="$2"; shift 2 ;;
+    --prefix) [ $# -ge 2 ] || die "--prefix needs a directory"; PREFIX="$2"; shift 2 ;;
     --prefix=*) PREFIX="${1#*=}"; shift ;;
     --tools-only) DO_CONFIG=0; shift ;;
     --config-only) DO_TOOLS=0; shift ;;
     --no-nvim-bootstrap) DO_NVIM_BOOTSTRAP=0; shift ;;
     -h | --help) usage ;;
-    *) printf 'ERROR: unknown option: %s (try --help)\n' "$1" >&2; exit 1 ;;
+    *) printf 'Error: unknown option: %s (try --help)\n' "$1" >&2; exit 1 ;;
   esac
 done
+
+[ "$DO_TOOLS" = 0 ] && [ "$DO_CONFIG" = 0 ] && die "--tools-only and --config-only are mutually exclusive"
 
 BIN_DIR="$PREFIX/bin"
 OPT_DIR="$PREFIX/xpdt" # Neovim's runtime tree is unpacked here
@@ -66,12 +68,17 @@ export PATH="$BIN_DIR:$PATH"
 mkdir -p "$BIN_DIR"
 
 TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
+trap 'rm -rf "$TMP_DIR"' EXIT
+# Interrupt has to exit, not just clean up: a bare cleanup trap deletes TMP_DIR and
+# lets the script run on, which then dies later on an unrelated "download failed".
+trap 'rm -rf "$TMP_DIR"; exit 130' INT TERM
 
+# Quote a value for POSIX sh: wrap in single quotes, escaping any embedded quote.
+shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 info() { printf '  %s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
-warn() { printf 'WARNING: %s\n' "$*" >&2; }
-die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+warn() { printf 'Careful: %s\n' "$*" >&2; }
+die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
 # --- platform detection -----------------------------------------------------
 case "$(uname -s)" in
@@ -104,7 +111,13 @@ esac
 # bat, Neovim and tree-sitter publish no checksums, so theirs - and the bat theme's
 # - are trust-on-first-use values recorded from a verified-TLS download.
 #
-# Bumping a pinned VERSION above therefore REQUIRES adding the new artifact's hash
+# Note the two shapes: ripgrep, bat and fzf put the version in the filename, so a
+# bump misses the lookup and is refused outright; Neovim, xplr, tree-sitter and the
+# bat theme have version-free filenames, so a bump hits the OLD key and is caught by
+# the hash comparison instead - it reports a mismatch rather than a missing pin.
+# Either way it fails closed, but do not paste in the hash of the download that just
+# failed: re-derive it, or the provenance step is lost.
+# Bumping a pinned VERSION above therefore requires adding the new artifact's hash
 # here: the filename changes, the lookup misses, and the install fails closed. Get a
 # hash with:  curl -fL <url> | sha256sum
 expected_sha() { # expected_sha ARTIFACT-FILENAME -> pinned hash, empty if unpinned
@@ -167,7 +180,7 @@ dl() { # dl URL DEST - download, then verify against the pin. Non-zero on any fa
   [ -n "$have" ] || { rm -f "$2"; die "no sha256 tool (sha256sum / shasum / openssl); cannot verify downloads"; }
   if [ "$have" != "$want" ]; then
     rm -f "$2"
-    warn "CHECKSUM MISMATCH for $name - discarded, NOT installed"
+    warn "Checksum mismatch for $name - discarded, not installed"
     warn "  expected $want"
     warn "  got      $have"
     return 1
@@ -236,7 +249,7 @@ install_xplr() {
 # --- config symlinks --------------------------------------------------------
 # Files under the config dir that hold the USER's state rather than code. They are
 # git-ignored, so a clone never carries them: without the copy below, reinstalling
-# from a DIFFERENT clone (or over a real ~/.config/xpdt) silently handed the user
+# from a different clone (or over a real ~/.config/xpdt) silently handed the user
 # factory defaults and orphaned their real settings at the old path.
 USER_STATE=".gate-config .search-scope"
 
@@ -251,6 +264,11 @@ carry_user_state() { # carry_user_state FROM_DIR TO_DIR
       else
         warn "could not copy $1/$f - your settings remain at that path"
       fi
+    elif [ -f "$1/$f" ] && [ -f "$2/$f" ] && ! cmp -s "$1/$f" "$2/$f"; then
+      # Both clones hold settings and they differ. The one already in this clone wins
+      # (it is what the install will use), but say so rather than let the other copy
+      # disappear silently - it is still on disk at the path named here.
+      warn "this clone's $f differs from the one you were using; kept this clone's copy ($1/$f left untouched)"
     fi
   done
 }
@@ -263,7 +281,15 @@ link_config() { # link_config NAME
     # Settings live in whatever directory the symlink points at, so when that is a
     # different clone from this one they have to be brought across before relinking.
     prev=$(readlink "$target" 2>/dev/null || true)
-    case "$prev" in /*) carry_user_state "$prev" "$src" ;; esac
+    # A relative link is resolved against the link's own directory, not the current
+    # one. Without this a link like ../../clone/xpdt was skipped entirely and the
+    # user silently dropped back to factory defaults.
+    case "$prev" in
+      /*) prev_abs="$prev" ;;
+      "") prev_abs="" ;;
+      *) prev_abs="$HOME/.config/$prev" ;;
+    esac
+    [ -n "$prev_abs" ] && carry_user_state "$prev_abs" "$src"
     relink "$src" "$target"
   elif [ -e "$target" ]; then
     bak="$target.bak.$(date +%Y%m%d%H%M%S)"
@@ -284,8 +310,11 @@ install_launcher() {
   {
     printf '#!/bin/sh\n'
     printf '# xpdt - xplr running the custom xpdt config. Generated by xpdt install.sh; edits are overwritten.\n'
-    printf 'xplr_bin="%s"\n' "$BIN_DIR/xplr"
-    printf 'xpdt_version="%s"\n' "$XPDT_VERSION"
+    # Single-quoted with embedded quotes escaped: baked raw inside double quotes, a
+    # prefix containing a quote produced an unparseable launcher, and one containing
+    # $(...) was command-substituted on every run. shq is the same idiom init.lua uses.
+    printf 'xplr_bin=%s\n' "$(shq "$BIN_DIR/xplr")"
+    printf 'xpdt_version=%s\n' "$(shq "$XPDT_VERSION")"
     cat <<'XPDT_LAUNCHER'
 [ -x "$xplr_bin" ] || xplr_bin=xplr
 
@@ -303,8 +332,8 @@ Usage:
   xpdt --version               show the xpdt and xplr versions
 
 Every xplr flag (listed below) passes straight through. Inside xpdt, press
-ctrl-h for the keybinding cheat sheet, or read the controls panel at the
-bottom of the screen. Plain `xplr` runs stock, out of the box.
+h for the keybindings, or ctrl-h for the Neovim cheat sheet. Plain `xplr`
+runs stock, out of the box.
 
 --- underlying xplr --help ---
 USAGE
@@ -323,6 +352,9 @@ done
 exec "$xplr_bin" -c "$HOME/.config/xpdt/init.lua" "$@"
 XPDT_LAUNCHER
   } > "$TMP_DIR/xpdt"
+  # Never install a launcher that does not parse: it is the entry point, and a bad one
+  # would otherwise be installed 0755 and reported as a successful install.
+  sh -n "$TMP_DIR/xpdt" 2>/dev/null || die "generated launcher is not valid sh; refusing to install it"
   install -m0755 "$TMP_DIR/xpdt" "$BIN_DIR/xpdt"
   info "xpdt -> $BIN_DIR/xpdt  (launches: xplr -c ~/.config/xpdt/init.lua)"
 }
@@ -354,22 +386,34 @@ seed_gate_config() {
 # other surface is unaffected.
 TOKYONIGHT_REF=v4.11.0
 install_bat_theme() {
-  bat_bin="$BIN_DIR/bat"; [ -x "$bat_bin" ] || bat_bin=$(command -v bat 2>/dev/null)
+  # `|| true`: under set -e an assignment whose command substitution exits non-zero
+  # ends the script, so without it a missing bat aborted the whole run (exit 127) and
+  # the skip-and-warn guard on the next line was never reached.
+  bat_bin="$BIN_DIR/bat"; [ -x "$bat_bin" ] || bat_bin=$(command -v bat 2>/dev/null || true)
   [ -n "$bat_bin" ] || { warn "bat not found; skipping the Tokyo Night bat theme"; return 0; }
   themes_dir="$HOME/.config/bat/themes"
   mkdir -p "$themes_dir" 2>/dev/null || return 0
   tn="$themes_dir/tokyonight_night.tmTheme"
   url="https://raw.githubusercontent.com/folke/tokyonight.nvim/$TOKYONIGHT_REF/extras/sublime/tokyonight_night.tmTheme"
-  # Not silenced: this one is best-effort (guarded by the `if`), but a CHECKSUM
-  # MISMATCH must still be visible rather than looking like an offline skip.
-  if dl "$url" "$tn" && [ -s "$tn" ]; then
+  # Already present: the ref is pinned, so re-fetching on every --config-only (which the
+  # release flow runs for each version bump) buys nothing.
+  if [ -s "$tn" ]; then
+    info "Tokyo Night bat theme already installed"
+    return 0
+  fi
+  # Staged in TMP_DIR and moved into place only once verified, so a failed or tampered
+  # re-fetch can never delete a theme that was already working.
+  stage="$TMP_DIR/tokyonight_night.tmTheme"
+  # Not silenced: this one is best-effort (guarded by the `if`), but a checksum mismatch
+  # must still be visible rather than looking like an offline skip.
+  if dl "$url" "$stage" && [ -s "$stage" ] && mv "$stage" "$tn"; then
     if "$bat_bin" cache --build >/dev/null 2>&1; then
       info "built the Tokyo Night bat theme"
     else
       warn "could not build bat's theme cache (Tokyo Night preview falls back to default)"
     fi
   else
-    rm -f "$tn" 2>/dev/null
+    rm -f "$stage" 2>/dev/null
     warn "could not fetch the Tokyo Night bat theme (its preview falls back to default)"
   fi
 }

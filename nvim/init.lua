@@ -1,10 +1,20 @@
 -- bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+local lazy_ok = true
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   vim.fn.system({
     "git", "clone", "--filter=blob:none",
     "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath,
   })
+  -- Offline, firewalled, no git, read-only data dir: without this check the clone
+  -- failed silently and `require("lazy")` then threw, which aborted the REST of this
+  -- file. Everything xpdt-specific below (:XpdtDiff, the left-exit map, <leader>Y,
+  -- diagnostics) is plain Neovim and works with no plugins at all, so it should
+  -- survive a failed bootstrap.
+  if vim.v.shell_error ~= 0 then
+    lazy_ok = false
+    vim.notify("xpdt: could not install lazy.nvim; continuing without plugins", vim.log.levels.WARN)
+  end
 end
 vim.opt.rtp:prepend(lazypath)
 
@@ -85,7 +95,7 @@ if XPDT_THEME == "monokai" then
 end
 
 -- plugins
-require("lazy").setup({
+local lazy_setup = {
   { "tanvirtin/monokai.nvim", lazy = false, priority = 1000 },
   -- Extra colour themes, selectable in xpdt's `,` settings menu (only the chosen one
   -- is applied at startup). Small, pure-Lua colorschemes.
@@ -156,17 +166,44 @@ require("lazy").setup({
   -- correct cmd / root / init_options / settings - e.g. the ESLint and ts_ls quirks a
   -- hand-rolled config gets wrong. vim.lsp.enable() reads its lsp/<name>.lua files.
   { "neovim/nvim-lspconfig", lazy = false },
-})
+}
+
+-- pcall so a broken plugin spec or a failed bootstrap cannot take the rest of this
+-- file down with it; the editor is still usable, just without plugins.
+if lazy_ok then
+  local ok, err = pcall(function()
+    require("lazy").setup(lazy_setup)
+  end)
+  if not ok then
+    vim.notify("xpdt: lazy.nvim failed to load (" .. tostring(err) .. ")", vim.log.levels.WARN)
+  end
+end
 
 -- theme (for monokai this fires the ColorScheme autocmd that applies the bat palette)
 if not pcall(vim.cmd.colorscheme, XPDT_COLORSCHEME) then
   pcall(vim.cmd.colorscheme, "monokai")
 end
 
--- live reload: pick up external changes like the preview does
-vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "FocusGained", "BufEnter" }, { command = "silent! checktime" })
+-- Live reload: pick up external changes like the preview does.
+--
+-- Only unmodified buffers are checked. On a buffer with unsaved edits whose file also
+-- changed on disk, checktime raises W12 and a blocking "[O]K, (L)oad File" dialog that
+-- `silent!` does not suppress - so a git checkout from xpdt, or anything rewriting a
+-- file you have open, popped a modal prompt in the middle of typing and ate the next
+-- keypress. `autoread` still reloads unmodified buffers silently, so nothing is lost.
+local function checktime_unmodified()
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and not vim.bo[buf].modified then
+      pcall(vim.cmd, "silent! checktime " .. buf)
+    end
+  end
+end
+
+vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "FocusGained", "BufEnter" }, {
+  callback = checktime_unmodified,
+})
 local reload_timer = (vim.uv or vim.loop).new_timer()
-reload_timer:start(1000, 1000, vim.schedule_wrap(function() vim.cmd("silent! checktime") end))
+reload_timer:start(1000, 1000, vim.schedule_wrap(checktime_unmodified))
 
 -- Copy the whole file to the system clipboard with <leader>Y (space then shift-Y).
 -- clipboard=unnamedplus already routes yanks to the system clipboard (pbcopy on
@@ -461,7 +498,7 @@ end, { desc = "Toggle an inline diff of the current file vs its git index (unsta
 -- ===========================================================================
 -- djlsp (Django templates) collects your project's tags / filters / {% url %} names /
 -- context by importing the Django project, which needs the project's virtualenv. But it
--- only looks for a venv in env/.env/venv/.venv under the project root and IGNORES an
+-- only looks for a venv in env/.env/venv/.venv under the project root and ignores an
 -- active venv - so a venv that is activated, or lives elsewhere, or is named anything
 -- else, is missed, and you get "Failed to collect project-specific Django data" (generic
 -- completions only). Point djlsp at the active venv first ($VIRTUAL_ENV, which venv /
@@ -635,12 +672,12 @@ end
 -- how diagnostics look, and how the built-in completion menu behaves.
 -- Long messages used to show as inline virtual text at the end of the line, which
 -- cannot wrap - a long type error just ran off the right edge with no way to read
--- the rest. Show them as wrapped virtual LINES under the current line instead (the
+-- the rest. Show them as wrapped virtual lines under the current line instead (the
 -- full message, on as many rows as it needs), only for the line the cursor is on so
 -- it stays uncluttered. The gutter signs still mark every diagnostic line at a glance,
 -- and `<leader>e` opens the full text in a bordered float (which also wraps).
 --
--- Neovim's built-in virtual_lines does NOT soft-wrap a long single-line message - it
+-- Neovim's built-in virtual_lines does not soft-wrap a long single-line message - it
 -- puts it on one virtual line that runs off the right edge. So we pre-wrap the message
 -- ourselves in `format`: word-wrap it to the width actually left for the text, which is
 -- the window width minus the gutter (`textoff`), minus the column the message is
@@ -847,6 +884,6 @@ vim.api.nvim_create_user_command("XpdtLsp", function()
 end, { desc = "Show xpdt intellisense (LSP) status" })
 
 -- Run inline (not deferred): vim.lsp.enable only auto-attaches to buffers opened
--- AFTER it runs, and the file you launched on is read just after init.lua sources,
+-- after it runs, and the file you launched on is read just after init.lua sources,
 -- so deferring would miss it. setup_lsp force-loads Mason itself for the PATH.
 setup_lsp()

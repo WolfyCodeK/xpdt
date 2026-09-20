@@ -1,7 +1,7 @@
 #!/bin/sh
 # Last-commit author per file in a directory, for the author column. `git log
 # --name-only` has no way to stop once it has seen each file, so without a bound it
-# walks the repo's ENTIRE history every time you enter a directory - the main lag on
+# walks the repo's entire history every time you enter a directory - the main lag on
 # a deep repo. -n caps that walk: a file's last author is almost always in recent
 # history, and anything older simply shows no author (cheap and bounded either way).
 DEPTH=500

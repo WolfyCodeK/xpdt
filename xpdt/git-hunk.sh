@@ -11,10 +11,10 @@
 # @@ block; extracted from the live diff each time, so sequential hunk ops stay
 # valid as line numbers shift.
 #
-# The diff is taken at ZERO context (-U0). git's default 3 lines of context merge
+# The diff is taken at zero context (-U0). git's default 3 lines of context merge
 # any two changes closer than ~7 lines into a single hunk, which made staging too
 # coarse - a change you did not want went in with one you did. At -U0 each run of
-# CONTIGUOUS changed lines is its own hunk, so two changes with even one unchanged
+# contiguous changed lines is its own hunk, so two changes with even one unchanged
 # line between them split apart. Applying a zero-context patch needs --unidiff-zero
 # (git's default apply refuses a diff with no context), added to both apply paths.
 MODE="$1"; ROOT="$2"; GROUP="$3"; FILE="$4"; INDEX="$5"

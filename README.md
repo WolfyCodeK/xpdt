@@ -21,7 +21,7 @@ get two commands:
   `main` branch - which builds parsers with the pinned `tree-sitter` CLI, needs a C
   compiler present - a Monokai theme colour-matched to bat, or Gruvbox / Nord / Dracula / Tokyo Night
   switchable in xpdt's settings, plus leap, surround, comment,
-  lualine and indent guides) that opens files from xpdt - `→` on a file, or `ctrl-e` in the git changes
+  lualine and indent guides) that opens files from xpdt - `→` on a file, or `→` in the git changes
   browser - and copies the whole file to the clipboard with `<space>Y`.
   It also adds opt-in, per-language **intellisense** (LSP) - you pick the languages and
   frameworks you want in xpdt's settings menu and it installs just those servers for you

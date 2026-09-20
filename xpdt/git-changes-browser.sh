@@ -7,7 +7,7 @@ DIR="${XPLR_DIR:-${XPLR_FOCUS_PATH:-$PWD}}"
 ROOT="$(sh "$X/repo-root.sh" "$DIR")"
 [ -z "$ROOT" ] && exit 0
 
-# The repo root is handed to the fzf binds through the ENVIRONMENT rather than being
+# The repo root is handed to the fzf binds through the environment rather than being
 # pasted into their command strings. fzf re-parses each bind with a shell, so a root
 # path containing a quote or $(...) would otherwise be executed; "$XPDT_ROOT" is
 # expanded by that shell from the inherited value instead.
@@ -42,8 +42,12 @@ PW=$(pv "$NENTRIES")
 # "nvim-diff-unstaged" setting on it opens with its changes shown inline against the
 # index instead (:XpdtDiff, defined in nvim/init.lua), so you review the green/red diff
 # and edit in place. Read once here; a toggle applies the next time you open the browser.
-UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim {3..}"
-[ "$(sh "$X/gate.sh" get nvim-diff-unstaged)" = 1 ] && UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim -c XpdtDiff {3..}"
+# `--` before the path: nvim parses a leading `+` as a startup COMMAND, so a file
+# named `+!touch X` ran `:!touch X` on open - a filename in a cloned repo was enough.
+# open-file.sh and edit-at.sh are safe because they absolutise the path first; this is
+# the one invocation that passes a repo-relative name straight through.
+UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim -- {3..}"
+[ "$(sh "$X/gate.sh" get nvim-diff-unstaged)" = 1 ] && UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim -c XpdtDiff -- {3..}"
 
 # An untracked file ({2} = ?) is in no diff at all, so `git diff` printed nothing and
 # the preview sat empty. --no-index against /dev/null gives it a real diff - every line

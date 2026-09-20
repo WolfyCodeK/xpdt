@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Word-level diff highlighter for the fzf diff previews. Reads an UNCOLOURED
+# Word-level diff highlighter for the fzf diff previews. Reads an uncoloured
 # unified diff on stdin (git show/diff/stash show with --color=never) and writes
 # it back coloured so that:
 #   - a removed line gets a dim red background, an added line a dim green one
@@ -13,7 +13,7 @@
 # (a pure add or delete) keep just the dim background. Operating on the plain diff
 # (no ANSI in) keeps this simple and lossless - we own every colour we emit.
 #
-# With `--syntax PATH` the line CONTENT is additionally syntax-highlighted by bat,
+# With `--syntax PATH` the line content is additionally syntax-highlighted by bat,
 # using PATH only to pick the language, so a diff reads as code rather than as two
 # flat colours. The add/remove backgrounds and the word-level highlights are then
 # overlaid on top of bat's colouring (see tint). bat is optional: if it is missing,
@@ -76,7 +76,13 @@ META_PREFIXES = (
 
 
 def expand(s):
-    return s.replace("\t", "    ")
+    # ESC is stripped, not just tabs. `--color=never` only stops git adding colour; a
+    # file that itself contains an ESC byte (a terminal capture, an icon preview) still
+    # carries it through. Tokenising raw text and splicing our own codes in at token
+    # boundaries then landed them INSIDE a content escape, tearing it in half, and a
+    # content reset mid-line killed the row tint and broke fzf soft-wrap. It also
+    # desynchronised the word mask from bat's output, which has consumed those escapes.
+    return s.replace("\t", "    ").replace("\x1b", "")
 
 
 # A del/add pair is only word-diffed when the two lines are similar enough to be
@@ -105,6 +111,11 @@ def highlight(lines, path):
                 "--color=always",
                 "--plain",
                 "--paging=never",
+                # A user ~/.config/bat/config is otherwise honoured here: a --wrap or
+                # --terminal-width in it changes the line count, the length check below
+                # fails, and syntax highlighting silently disappears for good.
+                "--no-config",
+                "--wrap=never",
                 "--tabs=0",  # tabs are already expanded, so do not expand them twice
                 "--file-name",
                 os.path.basename(path),
@@ -232,25 +243,45 @@ def classify(lines):
     streams are what gets syntax-highlighted, so each side is coloured with its own
     correct context instead of with the two interleaved."""
     recs, old, new = [], [], []
+    in_hunk = False
     for line in lines:
-        is_del = line.startswith("-") and not line.startswith("---")
-        is_add = line.startswith("+") and not line.startswith("+++")
-        if is_del:
-            recs.append(("del", line, len(old), None))
-            old.append(expand(line[1:]))
-        elif is_add:
-            recs.append(("add", line, None, len(new)))
-            new.append(expand(line[1:]))
-        elif line.startswith("@@"):
+        if line.startswith("diff --git ") or line.startswith("diff --cc "):
+            in_hunk = False
+        if line.startswith("@@"):
+            in_hunk = True
             recs.append(("hunk", line, None, None))
-        elif line.startswith(HDR_PREFIXES):
+            continue
+        if in_hunk:
+            # Position, not prefix. Classifying `---`/`+++` as headers anywhere meant a
+            # deleted line whose own text starts with `-- ` (a Lua, SQL or Haskell
+            # comment, YAML front matter) arrived as `--- ...` and rendered as a blue
+            # file header with no red tint and no word diff - and an added `++i;`
+            # arrived as `+++i;` and rendered grey. Inside a hunk the first character
+            # is always the marker, so there is nothing to disambiguate.
+            if line.startswith("-"):
+                recs.append(("del", line, len(old), None))
+                old.append(expand(line[1:]))
+                continue
+            if line.startswith("+"):
+                recs.append(("add", line, None, len(new)))
+                new.append(expand(line[1:]))
+                continue
+            if line.startswith("\\"):
+                # "\ No newline at end of file" - a marker, not content.
+                recs.append(("hdr", line, None, None))
+                continue
+            if line.startswith(" ") or line == "":
+                recs.append(("ctx", line, len(old), len(new)))
+                old.append(expand(line[1:]))
+                new.append(expand(line[1:]))
+                continue
+            in_hunk = False
+        if line.startswith(HDR_PREFIXES):
             recs.append(("hdr", line, None, None))
         elif line.startswith(META_PREFIXES):
             recs.append(("meta", line, None, None))
         elif line.startswith(" "):
-            recs.append(("ctx", line, len(old), len(new)))
-            old.append(expand(line[1:]))
-            new.append(expand(line[1:]))
+            recs.append(("ctx", line, None, None))
         else:
             recs.append(("other", line, None, None))
     return recs, old, new

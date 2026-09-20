@@ -3,7 +3,7 @@ F="$XPLR_FOCUS_PATH"
 [ -z "$F" ] && exit 0
 case "$F" in /*) ;; *) F="$PWD/$F" ;; esac
 [ -d "$F" ] && exit 0
-COLS=$(stty size </dev/tty 2>/dev/null | awk '{print $2}')
+COLS=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $2}')
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
 [ -z "$COLS" ] && COLS=100
 TMP=$(mktemp); POSF=$(mktemp); PORTF=$(mktemp); MAPF=$(mktemp); MARKF=$(mktemp)
@@ -16,7 +16,7 @@ cleanup() {
   rm -f "$TMP" "$POSF" "$PORTF" "$MAPF" "$MARKF" "$LASTPOSF" "$QLENF"
 }
 trap cleanup EXIT INT TERM
-# Render into $TMP first (bat + wrap can take a moment on a big file) WITHOUT
+# Render into $TMP first (bat + wrap can take a moment on a big file) without
 # touching the screen, so the current view stays put until the preview is ready
 # instead of flashing blank for the whole prep. The screen is cleared only once,
 # right before fzf paints (see below).
@@ -26,7 +26,12 @@ POSBIND=""
 POS=$(cat "$POSF" 2>/dev/null)
 [ -n "$POS" ] && POSBIND="--bind load:pos($POS)"
 BASE="$(basename "$F")"
-RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- '$F' | W=$((COLS - 4)) MAPFILE='$MAPF' python3 -S '$HOME/.config/xpdt/wrap-lines.py'"
+# The path reaches the binds through the ENVIRONMENT, not their command strings -
+# fzf re-parses each bind with a shell, so a single quote in a filename ("Dad's
+# list.txt") broke edit / reload / copy outright, and a crafted name executed.
+XPDT_PREVIEW_FILE="$F"
+export XPDT_PREVIEW_FILE
+RELOAD="bat --color=always --style=plain --tabs=4 --wrap=never -- \"\$XPDT_PREVIEW_FILE\" | W=$((COLS - 4)) MAPFILE='$MAPF' python3 -S '$HOME/.config/xpdt/wrap-lines.py'"
 # Reload the preview when the file changes underneath it. `stat`'s format flag is
 # GNU `-c` (Linux, WSL2) or BSD `-f` (macOS) - probe for the working one instead of
 # assuming BSD, which on Linux printed filesystem info that never changed, so the
@@ -59,7 +64,7 @@ if [ -n "$MFLAG" ]; then
 fi
 # Clear leftover output (e.g. a prior confirmation prompt) only now that the preview
 # is built, so fzf paints over it in the same instant instead of after a blank gap.
-printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+{ printf '\033[2J\033[H' > /dev/tty; } 2>/dev/null
 fzf --ansi --no-sort --exact --reverse --wrap --listen --prompt="$BASE > " \
     $POSBIND \
     --header="$(sh "$HOME/.config/xpdt/wrap-header.sh" 'type to search    [ctrl-v] select    [ctrl-y] copy    [→/ctrl-e] edit    [←] back')" \
@@ -68,7 +73,7 @@ fzf --ansi --no-sort --exact --reverse --wrap --listen --prompt="$BASE > " \
     --bind 'left:abort' \
     --bind 'enter:ignore' \
     --bind "ctrl-v:execute-silent(echo {n} > '$MARKF')+change-prompt(select: move to end line, ctrl-y > )" \
-    --bind "right:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} '$F')+reload($RELOAD)" \
-    --bind "ctrl-e:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} '$F')+reload($RELOAD)" \
-    --bind "ctrl-y:execute-silent[sh '$HOME/.config/xpdt/copy-preview.sh' '$F' '$MAPF' '$MARKF' {n}; ( sleep 2; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d 'change-prompt($BASE > )' ) & ]+change-prompt(copied to clipboard > )" \
+    --bind "right:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} \"\$XPDT_PREVIEW_FILE\")+reload($RELOAD)" \
+    --bind "ctrl-e:execute(sh '$HOME/.config/xpdt/edit-at.sh' '$MAPF' {n} \"\$XPDT_PREVIEW_FILE\")+reload($RELOAD)" \
+    --bind "ctrl-y:execute-silent[sh '$HOME/.config/xpdt/copy-preview.sh' \"\$XPDT_PREVIEW_FILE\" '$MAPF' '$MARKF' {n}; ( sleep 2; curl -s --max-time 1 -XPOST localhost:\$FZF_PORT -d 'change-prompt($BASE > )' ) & ]+change-prompt(copied to clipboard > )" \
     < "$TMP" || true

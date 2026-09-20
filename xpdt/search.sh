@@ -17,7 +17,7 @@ case "$MODE" in
     # in spelling: GNU (Linux, WSL2) is `-c FORMAT`, while BSD (macOS) is `-f FORMAT`
     # and GNU's `-f` means "filesystem status" and takes no format at all. Assuming
     # the BSD form therefore did not just mis-sort on Linux - it printed block counts
-    # and free space INSTEAD of file paths, so this search was entirely broken there.
+    # and free space instead of file paths, so this search was entirely broken there.
     # Probe for the working form once; if neither works, fall back to an unsorted
     # listing rather than emitting nothing.
     if stat -c '%Y' . >/dev/null 2>&1; then

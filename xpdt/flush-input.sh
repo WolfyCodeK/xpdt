@@ -4,7 +4,7 @@
 #
 # Two cases:
 #
-# 1. A left-exit where the key may still be HELD: leaving Neovim via the left-exits-nvim
+# 1. A left-exit where the key may still be held: leaving Neovim via the left-exits-nvim
 #    mapping, or backing out of the / \ search (left deletes the query, then a final left
 #    at the empty query aborts). Both leave the flag file. Auto-repeat has an initial
 #    delay, so the repeats arrive *after* the program has closed - a one-shot flush runs

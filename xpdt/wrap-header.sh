@@ -14,10 +14,10 @@ COLS="$2"
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
 [ -z "$COLS" ] && COLS=80
 # A probe character (U+2192, the → in every header) supplied as a byte string, so the
-# awk program source stays pure ASCII - a multibyte literal in awk SOURCE is exactly
+# awk program source stays pure ASCII - a multibyte literal in awk source is exactly
 # what left the commit list empty on some awk builds once before.
 printf '%s' "$1" | awk -v w="$COLS" -v probe="$(printf '\342\206\222')" '
-# awk length() counts characters on a UTF-8-aware awk (gawk) but BYTES on one without
+# awk length() counts characters on a UTF-8-aware awk (gawk) but bytes on one without
 # multibyte support (older macOS awk, mawk, busybox). Since the headers are full of
 # 3-byte glyphs (→ ← …), a byte count made every arrow look 2 columns wider than it
 # is and wrapped the header early. Detect which kind of awk this is from the probe,
