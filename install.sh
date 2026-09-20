@@ -102,6 +102,9 @@ esac
 
 # --- integrity ---------------------------------------------------------------
 # Every artifact downloaded below is pinned to a SHA-256 and verified before use.
+# The one exception is the from-source fallback for xplr (see install_xplr): cargo
+# fetches xplr and its dependency tree from crates.io, which is verified by cargo's
+# own registry checksums and TLS rather than by this table.
 # Version pinning alone only stops accidental drift - it cannot detect a swapped or
 # tampered artifact, and what this script installs are binaries you then run. A
 # mismatch is fatal; an artifact with no pin here is refused rather than installed.
@@ -236,6 +239,10 @@ install_xplr() {
     warn "prebuilt xplr $XPLR_VERSION won't run here (needs glibc >= 2.39)"
     if command -v cargo >/dev/null 2>&1; then
       info "building xplr $XPLR_VERSION from source with cargo (a few minutes)"
+      # Remove the unrunnable prebuilt first: it is still -x, so the launcher would
+      # pick it over a working xplr on PATH if this build then fails.
+      rm -f "$BIN_DIR/xplr"
+      # Not covered by expected_sha: cargo verifies crates.io downloads itself.
       cargo install --locked --version "$XPLR_VERSION" --root "$PREFIX" xplr
     else
       rm -f "$BIN_DIR/xplr"

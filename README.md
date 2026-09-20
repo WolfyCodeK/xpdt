@@ -63,7 +63,9 @@ It is regenerated on demand and safe to delete.
 
 **Every download is verified against a pinned SHA-256 before it is used**, and a
 mismatch aborts the install rather than running the binary - version pinning alone
-would not catch a swapped or tampered artifact. An artifact with no pinned hash is
+would not catch a swapped or tampered artifact. The one exception is the
+from-source fallback for xplr on older Linux: cargo fetches it and its dependencies
+from crates.io, verified by cargo's own registry checksums rather than by these pins. An artifact with no pinned hash is
 refused outright, so bumping a tool version means re-pinning its hash. The ripgrep,
 fzf and xplr hashes were cross-checked against the checksum files those projects
 publish; bat, Neovim and tree-sitter publish none, so theirs were recorded from a

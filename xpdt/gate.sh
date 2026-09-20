@@ -83,8 +83,14 @@ get() { # get KEY -> 1 (on) or 0 (off); `theme` returns the theme name (default
         # Confirmation actions and show-hidden default on; claude-integration and the
         # lsp-* language toggles are opt-in (off).
   if [ "$1" = theme ]; then
+    # Validated on the way out as well as in, for the same reason history-width is: a
+    # hand-edited config should degrade to the default rather than hand an unknown
+    # value to the consumers.
     v=$(sed -n 's/^theme=//p' "$CFG" 2>/dev/null | head -n1)
-    [ -n "$v" ] && printf '%s\n' "$v" || echo monokai
+    case "$v" in
+      monokai | gruvbox | nord | dracula | tokyonight) printf '%s\n' "$v" ;;
+      *) echo monokai ;;
+    esac
     return
   fi
   if [ "$1" = history-width ]; then
