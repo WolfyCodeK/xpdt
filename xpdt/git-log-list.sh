@@ -22,7 +22,7 @@ REFARG="${REF:-HEAD}"
 # empty (every commit a plain ●), like the git-history box's no-upstream case.
 UNPUSHED=""
 if [ -n "$(git -C "$ROOT" rev-list --remotes -n1 2>/dev/null)" ]; then
-  UNPUSHED=$(git -C "$ROOT" rev-list "$REFARG" --not --remotes 2>/dev/null)
+  UNPUSHED=$(git -C "$ROOT" rev-list "$REFARG" --not --remotes -- 2>/dev/null)
 fi
 
 ESC=$(printf '\033')
@@ -33,7 +33,7 @@ LOCAL="$ESC[33m○$ESC[0m" # hollow yellow: local / not pushed
 PUSHED="●"               # filled: on a remote
 
 # %s (subject) is placed last so any tab it might contain cannot shift fields.
-git -C "$ROOT" log "$REFARG" --format="%H$TAB%h$TAB%an$TAB%s" -n 500 2>/dev/null \
+git -C "$ROOT" log "$REFARG" --format="%H$TAB%h$TAB%an$TAB%s" -n 500 -- 2>/dev/null \
   | while IFS="$TAB" read -r full short author subject; do
       case "$NL$UNPUSHED$NL" in
         *"$NL$full$NL"*) dot="$LOCAL" ;;
