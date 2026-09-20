@@ -177,7 +177,15 @@ do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
   # Flushing first also matches the intent: drop the burst that arrived before the
   # prompt existed, then read the answer the user gives to the prompt they can see.
   python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
-  { printf '\n%s\n' "$msg"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
+  # Strip control bytes from the message before it reaches the terminal. It carries
+  # untrusted text - a filename, a branch name, a commit subject or author - and these
+  # prompts print while xplr/fzf is suspended, so bytes go RAW to the terminal rather
+  # than through xplr's ansi-to-tui or fzf --ansi. An ESC in a commit subject could
+  # clear the screen, set the window title, or redraw over the "Type NN to confirm"
+  # line to spoof which action is being confirmed. LC_ALL=C so tr works byte-wise and
+  # cannot choke on invalid UTF-8 in a name.
+  safe=$(printf '%s' "$msg" | LC_ALL=C tr -d '\000-\010\013\014\016-\037\177')
+  { printf '\n%s\n' "$safe"; printf 'Type %s to confirm (anything else cancels): ' "$c"; } > /dev/tty
   IFS= read -r a < /dev/tty || { printf '\n' > /dev/tty; return 1; }
   [ "$a" = "$c" ] && return 0
   printf 'Cancelled.\n' > /dev/tty; sleep 0.5; return 1
