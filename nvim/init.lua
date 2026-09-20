@@ -37,19 +37,30 @@ vim.opt.breakindent = true
 -- `theme=<name>`, default monokai). Maps to the colorscheme applied below; only Monokai
 -- layers the bat-matched palette (the other themes' own colorschemes already match
 -- their bat theme).
-local function xpdt_theme()
-  local t = "monokai"
-  local f = io.open(vim.fn.expand("~/.config/xpdt/.gate-config"), "r")
-  if f then
-    for line in f:lines() do
-      local v = line:match("^theme=(%w+)")
-      if v then
-        t = v
-      end
-    end
-    f:close()
+-- The lines of xpdt's settings file, read once and shared by the three readers below.
+-- pcall + readfile rather than io.open + f:lines(): io.open SUCCEEDS on a directory and
+-- the read then throws, which aborted the rest of this file. An absent or unreadable
+-- file simply reads as no settings, i.e. every default.
+local xpdt_config_lines
+local function xpdt_settings()
+  if xpdt_config_lines == nil then
+    local ok, all = pcall(vim.fn.readfile, vim.fn.expand("~/.config/xpdt/.gate-config"))
+    xpdt_config_lines = (ok and all) or {}
   end
-  return t
+  return xpdt_config_lines
+end
+
+local function xpdt_theme()
+  -- (%S+) not (%w+) so a hyphenated theme name would still match, and the FIRST match
+  -- wins to agree with gate.sh's `head -n1` - keeping the last one meant a duplicated
+  -- key made the settings menu and the editor disagree.
+  for _, line in ipairs(xpdt_settings()) do
+    local v = line:match("^theme=(%S+)")
+    if v then
+      return v
+    end
+  end
+  return "monokai"
 end
 local XPDT_THEME = xpdt_theme()
 local XPDT_COLORSCHEME = ({
@@ -122,7 +133,7 @@ local lazy_setup = {
         -- them. All wrapped in pcall so a missing CLI never errors on startup.
         local have = {}
         pcall(function()
-          for _, p in ipairs(ts.get_installed and ts.get_installed() or {}) do
+          for _, p in ipairs(ts.get_installed and ts.get_installed("parsers") or {}) do
             have[p] = true
           end
         end)
@@ -214,19 +225,14 @@ vim.keymap.set("n", "<leader>Y", "<cmd>%y+<cr>", { desc = "Copy whole file to cl
 
 -- Read a boolean xpdt setting from ~/.config/xpdt/.gate-config (key=1 -> true).
 local function xpdt_setting_on(key)
-  local f = io.open(vim.fn.expand("~/.config/xpdt/.gate-config"), "r")
-  if not f then
-    return false
-  end
-  local on = false
-  local pat = "^" .. key:gsub("%-", "%%-") .. "=1%s*$"
-  for line in f:lines() do
-    if line:match(pat) then
-      on = true
+  local pat = "^" .. key:gsub("%-", "%%-") .. "=(%d)"
+  for _, line in ipairs(xpdt_settings()) do
+    local v = line:match(pat)
+    if v then
+      return v == "1"
     end
   end
-  f:close()
-  return on
+  return false
 end
 
 -- Where the "I left via a held <Left>" flag lives, so flush-input.sh can drain the
@@ -260,7 +266,7 @@ if xpdt_setting_on("nvim-left-exits") then
       pcall(vim.fn.writefile, {}, xpdt_left_exit_flag())
       vim.cmd("qall")
     else
-      vim.cmd("normal! h")
+      vim.cmd("normal! " .. vim.v.count1 .. "h")
     end
   end, { desc = "Left, or exit to xpdt at line start when there are no edits" })
 end
@@ -280,7 +286,7 @@ if xpdt_setting_on("nvim-help-bar") then
     { "gd", "def" }, { "gr", "refs" }, { "K", "hover" },
     { "spc rn", "rename" }, { "spc ca", "action" }, { "spc f", "format" }, { "spc e", "error" },
     { "]d [d", "diag" }, { "gc", "comment" }, { "s", "leap" }, { "cs ds ys", "surround" },
-    { ":w", "save" }, { ":q", "quit" }, { "u", "undo" }, { "C-r", "redo" }, { "C-h", "all keys" },
+    { ":w", "save" }, { ":q", "quit" }, { "u", "undo" }, { "C-r", "redo" },
   })
   -- key = bright, description = dim; links so they follow whichever colour theme is active.
   vim.api.nvim_set_hl(0, "XpdtHelpKey", { link = "Function" })
@@ -323,7 +329,11 @@ local function xpdt_render_inline_diff(buf)
     return
   end
   vim.api.nvim_buf_clear_namespace(buf, XPDT_DIFF_NS, 0, -1)
-  local before = table.concat(index, "\n") .. "\n"
+  -- An index with no lines is an EMPTY file, not a file with one blank line:
+  -- concat gives "" and the trailing "\n" then invented a line, so a file that is
+  -- empty in the index showed a phantom "- " removal and a change sign instead of
+  -- an add.
+  local before = (#index == 0) and "" or (table.concat(index, "\n") .. "\n")
   local after = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n") .. "\n"
   local anchors = {} -- the line to jump to for each hunk (in order, ascending)
   for _, h in ipairs(vim.diff(before, after, { result_type = "indices" }) or {}) do
@@ -349,7 +359,11 @@ local function xpdt_render_inline_diff(buf)
       end
       local row, above = sb - 1, cb > 0 -- above a change; below a pure deletion
       if row < 0 then
-        row, above = 0, true
+        -- Not `above = true`: Neovim does not render virtual lines above row 0, so a
+        -- deletion at the very top of the file drew nothing - and a pure deletion sets
+        -- no sign either, so the file looked unchanged while `]c` still counted a hunk.
+        -- Below row 0 is the closest position that actually renders.
+        row, above = 0, false
       end
       pcall(vim.api.nvim_buf_set_extmark, buf, XPDT_DIFF_NS, row, 0, {
         virt_lines = vlines,
@@ -401,9 +415,17 @@ end
 local function xpdt_inline_diff_off(buf)
   xpdt_diff_index[buf] = nil
   xpdt_diff_hunks[buf] = nil
-  if xpdt_diff_timer[buf] then
+  -- Closed, not just stopped: vim.defer_fn only closes its timer when it FIRES, so a
+  -- cancelled debounce leaked a libuv handle and its captured closure every time -
+  -- measured 7 handles growing to 57 over 50 TextChanged events, surviving both the
+  -- toggle-off and a buffer wipe.
+  local t = xpdt_diff_timer[buf]
+  if t then
     pcall(function()
-      xpdt_diff_timer[buf]:stop()
+      t:stop()
+      if not t:is_closing() then
+        t:close()
+      end
     end)
     xpdt_diff_timer[buf] = nil
   end
@@ -431,11 +453,24 @@ vim.api.nvim_create_user_command("XpdtDiff", function()
     vim.notify("XpdtDiff: not in a git repository", vim.log.levels.WARN)
     return
   end
-  local rel = vim.fn.systemlist({ "git", "-C", root, "ls-files", "--full-name", "--", file })[1]
+  -- core.quotepath=off: git otherwise C-quotes any path with a byte >= 0x80
+  -- ("caf\\303\\251.txt"), and that escaped name never resolves in `git show :<path>`,
+  -- so a perfectly tracked file reported "no index version (file is untracked?)".
+  local rel = vim.fn.systemlist({
+    "git", "-C", root, "-c", "core.quotepath=off", "ls-files", "--full-name", "--", file,
+  })[1]
   if not rel or rel == "" then
     rel = file:sub(#root + 2)
   end
   local index = vim.fn.systemlist({ "git", "-C", root, "show", ":" .. rel })
+  -- systemlist splits on \n only, so on a CRLF file every index line keeps its \r
+  -- while the buffer's lines have already had it stripped for fileformat=dos - every
+  -- single line then read as changed, with a stray ^M in the removed text.
+  if vim.bo[buf] and vim.bo[buf].fileformat == "dos" then
+    for i, l in ipairs(index) do
+      index[i] = (l:gsub("\r$", ""))
+    end
+  end
   if vim.v.shell_error ~= 0 then
     vim.notify("XpdtDiff: no index version (file is untracked?)", vim.log.levels.WARN)
     return
@@ -463,9 +498,13 @@ vim.api.nvim_create_user_command("XpdtDiff", function()
     group = grp,
     buffer = buf,
     callback = function()
-      if xpdt_diff_timer[buf] then
+      local prev = xpdt_diff_timer[buf]
+      if prev then
         pcall(function()
-          xpdt_diff_timer[buf]:stop()
+          prev:stop()
+          if not prev:is_closing() then
+            prev:close()
+          end
         end)
       end
       xpdt_diff_timer[buf] = vim.defer_fn(function()
@@ -474,7 +513,10 @@ vim.api.nvim_create_user_command("XpdtDiff", function()
       end, 100)
     end,
   })
-  vim.api.nvim_create_autocmd("BufWipeout", {
+  -- BufDelete and BufUnload as well as BufWipeout: after :bd the state tables still
+  -- held this buffer number, so re-editing the same file (same bufnr) took the
+  -- "already on" branch and cleared the diff instead of drawing it.
+  vim.api.nvim_create_autocmd({ "BufWipeout", "BufDelete", "BufUnload" }, {
     group = grp,
     buffer = buf,
     callback = function()
@@ -659,13 +701,10 @@ local MASON = {
 
 local function enabled_langs()
   local on = {}
-  local f = io.open(vim.fn.expand("~/.config/xpdt/.gate-config"), "r")
-  if not f then return on end
-  for line in f:lines() do
+  for _, line in ipairs(xpdt_settings()) do
     local k = line:match("^lsp%-([%w_-]+)=1%s*$")
     if k then on[k] = true end
   end
-  f:close()
   return on
 end
 
@@ -740,15 +779,25 @@ vim.api.nvim_create_autocmd("LspAttach", {
     -- pressing e.g. `gi` on a server without implementation support does its built-in
     -- Vim thing instead of warning "method ... is not supported". A different client
     -- that does support it binds the key when it attaches.
-    local mapm = function(method, m, l, r, d)
+    local mapm = function(method, m, l, r, d, nowait)
       if client and client:supports_method(method) then
-        map(m, l, r, d)
+        -- nowait matters for `gr`: Neovim 0.12 ships gra/gri/grn/grr/grt/grx as
+        -- global defaults, so a plain `gr` is a prefix of all of them and waits out
+        -- timeoutlen (measured 866ms) before firing - on a key the help bar names.
+        local o = vim.tbl_extend("force", base, { desc = d })
+        if nowait then
+          o.nowait = true
+        end
+        vim.keymap.set(m, l, r, o)
       end
     end
     mapm("textDocument/hover", "n", "K", vim.lsp.buf.hover, "Hover docs")
     mapm("textDocument/definition", "n", "gd", vim.lsp.buf.definition, "Go to definition")
     mapm("textDocument/declaration", "n", "gD", vim.lsp.buf.declaration, "Go to declaration")
-    mapm("textDocument/references", "n", "gr", vim.lsp.buf.references, "References")
+    -- nowait: Neovim 0.12 ships gra/gri/grn/grr/grt/grx as global defaults, so a plain
+      -- `gr` is a prefix of all of them and waited out timeoutlen (measured 866ms)
+      -- before firing - on a key the help bar tells you to press.
+      mapm("textDocument/references", "n", "gr", vim.lsp.buf.references, "References", true)
     mapm("textDocument/implementation", "n", "gi", vim.lsp.buf.implementation, "Implementations")
     mapm("textDocument/rename", "n", "<leader>rn", vim.lsp.buf.rename, "Rename symbol")
     mapm("textDocument/codeAction", { "n", "x" }, "<leader>ca", vim.lsp.buf.code_action, "Code action")

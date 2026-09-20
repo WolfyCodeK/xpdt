@@ -59,7 +59,7 @@ local function xpdt_read_theme()
   local f = io.open(os.getenv("HOME") .. "/.config/xpdt/.gate-config", "r")
   if f then
     for line in f:lines() do
-      local v = line:match("^theme=(%w+)")
+      local v = line:match("^theme=(%S+)")
       if v then
         t = v
       end

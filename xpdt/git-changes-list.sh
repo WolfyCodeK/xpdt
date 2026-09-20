@@ -15,8 +15,8 @@
 # literal newline in it is the one case still not representable - it is dropped
 # rather than mis-split (git's own porcelain v1 has the same limitation).
 git -C "$1" status --porcelain -z 2>/dev/null \
-  | tr '\n' '\001' \
-  | tr '\0' '\n' \
+  | LC_ALL=C tr '\n' '\001' \
+  | LC_ALL=C tr '\0' '\n' \
   | awk '
       skip { skip = 0; next }
       length($0) > 3 {

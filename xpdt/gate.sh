@@ -134,7 +134,7 @@ toggle() { # toggle KEY (use __master__ for the master switch)
   ensure_cfg
   if [ "$(get "$key")" = 1 ]; then new=0; else new=1; fi
   if grep -q "^$key=" "$CFG" 2>/dev/null; then
-    tmp="$CFG.$$"; sed "s/^$key=.*/$key=$new/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
+    tmp="$CFG.$$"; sed "s/^$key=.*/$key=$new/" "$CFG" > "$tmp" && mv "$tmp" "$CFG" || rm -f "$tmp" || rm -f "$tmp"
   else
     echo "$key=$new" >> "$CFG"
   fi
@@ -154,13 +154,13 @@ do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
   # a clean screen instead of stacking up on the normal screen across presses.
   # \033[?25h re-shows the cursor (fzf/xplr hide it and do not restore it for the
   # read), so there is a visible caret while typing.
-  printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
+  { printf '\033[2J\033[H\033[?25h' > /dev/tty; } 2>/dev/null
   # fzf runs execute() binds with the tty still in raw mode (and restores it
   # inconsistently), which makes the prompt render oddly and Enter arrive as a
   # bare CR that `read` never treats as end-of-line (it shows as ^M). Force the
   # tty back to a sane cooked mode so the prompt reads normally; fzf re-applies
   # its own mode when the bind returns.
-  stty sane < /dev/tty 2>/dev/null
+  { stty sane < /dev/tty; } 2>/dev/null
   # A 2-digit confirm code, generated with awk (a single BEGIN print) rather than
   # python - no ~16ms python spawn on the confirm path. srand() seeds from the clock,
   # which is plenty for a gate whose job is to stop an accidental keypress or a pasted
@@ -176,7 +176,7 @@ do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
   # for a keystroke it had already thrown away - the prompt sat there and the gate hung.
   # Flushing first also matches the intent: drop the burst that arrived before the
   # prompt existed, then read the answer the user gives to the prompt they can see.
-  python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
+  { python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' < /dev/tty; } 2>/dev/null
   # Strip control bytes from the message before it reaches the terminal. It carries
   # untrusted text - a filename, a branch name, a commit subject or author - and these
   # prompts print while xplr/fzf is suspended, so bytes go RAW to the terminal rather
@@ -205,7 +205,7 @@ case "${1:-}" in
     ensure_cfg
     if grep -q '^theme=' "$CFG" 2>/dev/null; then
       tmp="$CFG.$$"
-      sed "s/^theme=.*/theme=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
+      sed "s/^theme=.*/theme=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG" || rm -f "$tmp" || rm -f "$tmp"
     else
       echo "theme=$2" >> "$CFG"
     fi
@@ -218,7 +218,7 @@ case "${1:-}" in
     ensure_cfg
     if grep -q '^history-width=' "$CFG" 2>/dev/null; then
       tmp="$CFG.$$"
-      sed "s/^history-width=.*/history-width=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG"
+      sed "s/^history-width=.*/history-width=$2/" "$CFG" > "$tmp" && mv "$tmp" "$CFG" || rm -f "$tmp" || rm -f "$tmp"
     else
       echo "history-width=$2" >> "$CFG"
     fi

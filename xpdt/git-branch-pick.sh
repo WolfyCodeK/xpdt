@@ -6,7 +6,7 @@
 # esc keeps the current view (state file unchanged).
 ROOT="$1"; REFF="$2"
 [ -z "$ROOT" ] && exit 0
-printf '\033[2J\033[H' > /dev/tty 2>/dev/null
+{ printf '\033[2J\033[H' > /dev/tty; } 2>/dev/null
 CUR=$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null)
 BR=$({
     printf '%s (current)\n' "$CUR"

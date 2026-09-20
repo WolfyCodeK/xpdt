@@ -35,9 +35,12 @@ while : ; do
   # so the file list below is read with a tab delimiter and {-1} (the last field, which
   # is the new name for a rename). With fzf's default whitespace delimiter, {-1} took
   # only the text after the last space, so any path with a space opened the wrong file.
-  FILES=$(git -c core.quotePath=false -C "$ROOT" diff-tree --no-commit-id --name-status -r "$HASH")
+  # --first-parent -m so a MERGE commit lists files too: without it diff-tree prints
+  # nothing for a merge, and the blank row that produced previewed as
+  # `git show <hash> -- ''` -> "fatal: empty string is not a valid pathspec".
+  FILES=$(git -c core.quotePath=false -C "$ROOT" diff-tree --no-commit-id --name-status -r -m --first-parent "$HASH")
   NFILES=$(printf '%s\n' "$FILES" | grep -c .)
-  TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
+  TERMH=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $1}')
   [ -z "$TERMH" ] && TERMH=$(tput lines 2>/dev/null)
   [ -z "$TERMH" ] && TERMH=40
   MAXFILES=20
@@ -47,7 +50,8 @@ while : ; do
   N=$NFILES; [ "$N" -gt "$MAXFILES" ] && N=$MAXFILES; [ "$N" -lt 1 ] && N=1
   PW=$((TERMH - N - 4)); [ "$PW" -lt 3 ] && PW=3
   XPDT_HASH="$HASH"; export XPDT_HASH
-  printf '%s\n' "$FILES" \
+  # Truly empty input, not one blank line: `printf '%s\n' ""` emits a phantom row.
+  { [ -n "$FILES" ] && printf '%s\n' "$FILES"; } \
     | fzf --ansi --reverse --prompt="$HASH > " \
         --delimiter '\t' \
         --preview "git -C \"\$XPDT_ROOT\" show --color=never \"\$XPDT_HASH\" -- {-1} | python3 -S \"$X/diff-words.py\"" \

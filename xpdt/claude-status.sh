@@ -208,7 +208,7 @@ for path in sys.stdin.read().splitlines():
         status = "idle"
     rows.append({
         "status": status, "age": age, "name": name, "repo": repo,
-        "branch": clean(branch), "model": (model or "").split("-")[1] if model and "-" in model else "",
+        "branch": clean(branch), "model": clean((model or "").split("-")[1]) if model and "-" in model else "",
         "pct": ctx_pct(usage), "task": clean(last_prompt),
     })
 

@@ -23,14 +23,18 @@ flush() { python3 -S -c 'import termios, sys; termios.tcflush(sys.stdin.fileno()
 # the captured value. Empty result = cancel, unchanged. Usage: NAME=$(prompt 'label')
 prompt() {
   pf=$(mktemp)
-  python3 -S "$X/prompt-prefill.py" "" "$pf" "$1" < /dev/tty > /dev/tty 2>&1
+  # Trapped: without it a ctrl-c at the name prompt leaked one temp file per press.
+  trap 'rm -f "$pf"' EXIT INT TERM HUP
+  # Trapped: without this a ctrl-c at the name prompt leaked one temp file per press.
+  trap 'rm -f "$pf"' EXIT INT TERM HUP
+  { python3 -S "$X/prompt-prefill.py" "" "$pf" "$1" < /dev/tty > /dev/tty 2>&1; } 2>/dev/null
   cat "$pf" 2>/dev/null
   rm -f "$pf"
 }
 
 # Clear leftover output and re-show the cursor (xplr hides it) so a prompt is typed on
 # a clean screen with a visible caret.
-printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
+{ printf '\033[2J\033[H\033[?25h' > /dev/tty; } 2>/dev/null
 case "$OP" in
   newfile)
     flush; NAME=$(prompt 'New file name (empty cancels): ')
@@ -59,7 +63,7 @@ case "$OP" in
     flush
     TMP=$(mktemp)
     trap 'rm -f "$TMP"' EXIT INT TERM
-    python3 -S "$X/prompt-prefill.py" "$SRC" "$TMP" 'New name: ' < /dev/tty > /dev/tty 2>&1
+    { python3 -S "$X/prompt-prefill.py" "$SRC" "$TMP" 'New name: ' < /dev/tty > /dev/tty 2>&1; } 2>/dev/null
     NEW=$(cat "$TMP" 2>/dev/null); rm -f "$TMP"
     [ -z "$NEW" ] && { printf 'Cancelled.\n'; sleep 0.5; exit 0; }
     [ "$NEW" = "$SRC" ] && { printf 'Unchanged.\n'; sleep 0.5; exit 0; }

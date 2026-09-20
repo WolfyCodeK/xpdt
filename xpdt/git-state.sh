@@ -77,7 +77,11 @@ TMP=$(mktemp "$OUT.XXXXXX") || exit 0
   # forge a `branch` line.
   printf 'ts %s\n' "$(date +%s)"
 
-  BRANCH=$(g rev-parse --abbrev-ref HEAD 2>/dev/null)
+  # symbolic-ref, not rev-parse --abbrev-ref: the latter prints the literal "HEAD"
+  # for a detached or unborn head, so the panel title read "(HEAD)". Detached shows
+  # the short sha instead, which is what you actually want to see there.
+  BRANCH=$(g symbolic-ref --short -q HEAD 2>/dev/null)
+  [ -n "$BRANCH" ] || BRANCH=$(g rev-parse --short HEAD 2>/dev/null)
   [ -n "$BRANCH" ] && printf 'branch %s\n' "$BRANCH"
 
   # Ahead/behind is only meaningful against the tracked branch, so it stays on @{u}

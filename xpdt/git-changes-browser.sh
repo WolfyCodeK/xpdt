@@ -21,7 +21,7 @@ LIST="sh \"$X/git-changes-list.sh\" \"\$XPDT_ROOT\""
 ENTRIES=$(eval "$LIST")
 NENTRIES=$(printf '%s\n' "$ENTRIES" | grep -c .)
 
-TERMH=$(stty size </dev/tty 2>/dev/null | awk '{print $1}')
+TERMH=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $1}')
 [ -z "$TERMH" ] && TERMH=$(tput lines 2>/dev/null)
 [ -z "$TERMH" ] && TERMH=40
 MAXFILES=20

@@ -12,7 +12,7 @@ pause() { printf '\n[enter to continue] ' > /dev/tty; read -r _ < /dev/tty; }
 # Clear the normal screen first, so transient messages (e.g. "Nothing to stash")
 # and git output show once per press instead of piling up across repeated ops.
 # \033[?25h re-shows the cursor (fzf hides it) so the stash-message prompt has a caret.
-printf '\033[2J\033[H\033[?25h' > /dev/tty 2>/dev/null
+{ printf '\033[2J\033[H\033[?25h' > /dev/tty; } 2>/dev/null
 
 case "$OP" in
   push)
@@ -22,7 +22,7 @@ case "$OP" in
       exit 0
     fi
     sh "$GATE" confirm stash-new "Stash all working-tree changes (including untracked)?" || exit 0
-    python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' </dev/tty 2>/dev/null
+    { python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' < /dev/tty; } 2>/dev/null
     # Read the message through prompt-prefill.py (python readline), not a bare `read`.
     # A bare `read` has no line editing, so arrow keys arrive as their raw escape
     # bytes (^[[D, ^[[B, ...) and print into the message instead of moving the cursor.
@@ -32,7 +32,7 @@ case "$OP" in
     # prompt text cannot leak into it.
     MSGF=$(mktemp)
     trap 'rm -f "$MSGF"' EXIT INT TERM
-    python3 -S "$X/prompt-prefill.py" "" "$MSGF" 'Stash message (optional, enter to skip): ' < /dev/tty > /dev/tty 2>&1
+    { python3 -S "$X/prompt-prefill.py" "" "$MSGF" 'Stash message (optional, enter to skip): ' < /dev/tty > /dev/tty 2>&1; } 2>/dev/null
     msg=$(cat "$MSGF" 2>/dev/null); rm -f "$MSGF"; trap - EXIT INT TERM
     if [ -n "$msg" ]; then
       git -C "$ROOT" stash push --include-untracked -m "$msg" > /dev/tty 2>&1
