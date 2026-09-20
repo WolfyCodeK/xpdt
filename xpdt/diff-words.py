@@ -95,46 +95,89 @@ SIMILAR = 0.5
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
-def highlight(lines, path):
-    """Syntax-colour `lines` with bat, picking the language from `path`'s name.
-    Returns a list of the same length, or None if anything is off - callers then
-    fall back to flat colouring rather than risk mis-rendering the diff."""
-    if not lines or not path:
-        return None
+def _bat_cmd(path):
     bat = shutil.which("bat")
     if not bat:
         return None
+    return [
+        bat,
+        "--color=always",
+        "--plain",
+        "--paging=never",
+        # A user ~/.config/bat/config is otherwise honoured here: a --wrap or
+        # --terminal-width in it changes the line count, the length check below
+        # fails, and syntax highlighting silently disappears for good.
+        "--no-config",
+        "--wrap=never",
+        "--tabs=0",  # tabs are already expanded, so do not expand them twice
+        "--file-name",
+        os.path.basename(path),
+    ]
+
+
+def _collect(proc, lines):
+    """Read one bat process and map its output back onto `lines`, or None if anything
+    is off - callers then fall back to flat colouring rather than mis-colour the diff."""
+    if proc is None:
+        return None
     try:
-        r = subprocess.run(
-            [
-                bat,
-                "--color=always",
-                "--plain",
-                "--paging=never",
-                # A user ~/.config/bat/config is otherwise honoured here: a --wrap or
-                # --terminal-width in it changes the line count, the length check below
-                # fails, and syntax highlighting silently disappears for good.
-                "--no-config",
-                "--wrap=never",
-                "--tabs=0",  # tabs are already expanded, so do not expand them twice
-                "--file-name",
-                os.path.basename(path),
-            ],
-            input="\n".join(lines),
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
+        out, _ = proc.communicate(timeout=5)
     except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
         return None
-    if r.returncode != 0:
+    if proc.returncode != 0:
         return None
-    out = r.stdout.split("\n")
-    if out and out[-1] == "":
-        out.pop()
-    # A length mismatch means the mapping back onto diff lines would be wrong;
-    # refuse rather than colour the wrong lines.
-    return out if len(out) == len(lines) else None
+    got = out.split("\n")
+    if got and got[-1] == "":
+        got.pop()
+    # A length mismatch means the mapping back onto diff lines would be wrong.
+    return got if len(got) == len(lines) else None
+
+
+def highlight_sides(old, new, path):
+    """Syntax-colour the old and new sides, running both bat processes CONCURRENTLY.
+
+    This is an fzf --preview, so it re-runs on every arrow key in the changes browser;
+    two sequential bat spawns measured 109ms against 35ms without --syntax, which is
+    over the threshold where a keypress stops feeling instant - and the Mac's slower
+    process spawn only widens that. Started together, the second costs almost nothing.
+    Either side may be empty (a new file has no old side), and that side is skipped
+    rather than spawned."""
+    if not path:
+        return None, None
+    cmd = _bat_cmd(path)
+    if cmd is None:
+        return None, None
+
+    def spawn(lines):
+        if not lines:
+            return None
+        try:
+            p = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+        except Exception:
+            return None
+        try:
+            p.stdin.write("\n".join(lines))
+            p.stdin.close()
+        except Exception:
+            try:
+                p.kill()
+            except Exception:
+                pass
+            return None
+        return p
+
+    po, pn = spawn(old), spawn(new)
+    return _collect(po, old), _collect(pn, new)
 
 
 def column_mask(toks, mask):
@@ -300,8 +343,7 @@ def main():
         lines.pop()
 
     recs, old, new = classify(lines)
-    old_hl = highlight(old, path)
-    new_hl = highlight(new, path)
+    old_hl, new_hl = highlight_sides(old, new, path)
 
     out = []
     i, n = 0, len(recs)

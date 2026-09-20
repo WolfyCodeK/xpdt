@@ -29,6 +29,12 @@ git -C "$1" status --porcelain -z 2>/dev/null \
         # unrelated file. Real newlines are parked on \001 first so they survive the
         # NUL translation and can be detected here.
         if (index(p, "\001") > 0) next
+        # A leading space is dropped for the same reason. The browser extracts the path
+        # with the fzf placeholder {3..}, which starts at the third whitespace-separated
+        # field, so a leading space is eaten and the row yields a different name -
+        # staging or discarding it would act on the wrong file. Dropping is the safe
+        # half of the same promise the newline case makes.
+        if (substr(p, 1, 1) == " ") next
         if (x != " " && x != "?") s[++ns] = sprintf("%-8s %s %s", "staged", x, p)
         if (y != " ")             u[++nu] = sprintf("%-8s %s %s", "unstaged", y, p)
       }
