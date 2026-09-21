@@ -121,6 +121,7 @@ get() { # get KEY -> 1 (on) or 0 (off); `theme` returns the theme name (default
 defaults() {
   echo "enabled=1"
   echo "show-hidden=1"
+  echo "mouse=1"
   echo "claude-integration=0"
   echo "help-hint=1"
   echo "show-logs=1"
@@ -265,6 +266,7 @@ intellisense languages. Your search scope is left alone." || exit 1
 
     hdr 'GENERAL'
     printf 'show-hidden %s Show hidden files (dotfiles) - applies on next launch\n' "$(box "$(get show-hidden)")"
+    printf 'mouse %s Mouse wheel scrolls the file listing - off restores drag-select (next launch)\n' "$(box "$(get mouse)")"
     printf 'claude-integration %s Claude session list in the git history panel\n' "$(box "$(get claude-integration)")"
     printf 'help-hint %s A one-line [h] keybindings note along the bottom of the screen\n' "$(box "$(get help-hint)")"
     printf 'show-logs %s The logs strip along the bottom (it reappears on its own for a prompt)\n' "$(box "$(get show-logs)")"
