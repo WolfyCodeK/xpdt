@@ -16,6 +16,14 @@ export XPDT_ROOT XPDT_REFF
 LOG="sh \"$X/git-log-view.sh\" \"\$XPDT_ROOT\" \"\$XPDT_REFF\""
 HDR="sh \"$X/git-log-header.sh\" \"\$XPDT_ROOT\" \"\$XPDT_REFF\""
 
+# Every action below is a ctrl key or an arrow, never a bare letter. This is the one
+# browser whose list is filterable - the others are --disabled --no-input, so letters
+# are free to be actions there - and a letter bind swallows that character from the
+# filter query instead of typing it, so any commit subject containing it becomes
+# unsearchable. `b` (view branch) was bound that way, so no commit subject could be
+# filtered on a word containing a b.
+# ctrl-b does override fzf's backward-char, which this view had already lost the use
+# of anyway: left is abort and right is accept, so a query is edited with backspace.
 while : ; do
   LINE=$(eval "$LOG" \
     | fzf --ansi --no-sort --reverse --prompt='commit > ' \
@@ -23,7 +31,7 @@ while : ; do
         --preview "git -C \"\$XPDT_ROOT\" show --color=never {1} | python3 -S \"$X/diff-words.py\"" \
         --preview-window 'down,50%,wrap' \
         --bind "ctrl-z:execute(sh \"$X/git-undo.sh\" \"\$XPDT_ROOT\")+reload($LOG)" \
-        --bind "b:execute(sh \"$X/git-branch-pick.sh\" \"\$XPDT_ROOT\" \"\$XPDT_REFF\")+reload($LOG)+transform-header($HDR)" \
+        --bind "ctrl-b:execute(sh \"$X/git-branch-pick.sh\" \"\$XPDT_ROOT\" \"\$XPDT_REFF\")+reload($LOG)+transform-header($HDR)" \
         --bind "ctrl-p:execute(sh \"$X/git-cherry-pick.sh\" \"\$XPDT_ROOT\" {1})+reload($LOG)" \
         --bind 'ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
         --bind 'shift-up:preview-up,shift-down:preview-down' \
