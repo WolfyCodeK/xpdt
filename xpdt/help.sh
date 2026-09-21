@@ -47,6 +47,8 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "left" "back"
   sec "COMMIT HISTORY  (;)"
   row "right" "open a commit (browse its files)"
+  row "ctrl-t" "hide / show the diff pane - with it hidden the commit list"
+  row "" "goes full screen and scrolls without the diff following along"
   row "b" "view a different branch's commits"
   row "ctrl-p" "cherry-pick the commit onto the current branch"
   row "ctrl-z" "undo the last commit"
