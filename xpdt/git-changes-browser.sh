@@ -26,7 +26,21 @@ TERMH=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $1}')
 [ -z "$TERMH" ] && TERMH=40
 MAXFILES=20
 
-HDR="$(sh "$X/wrap-header.sh" '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [r] refresh  [ctrl-u/d] scroll diff  [→] edit (unstaged) / diff (staged)')"
+# Context line above the keys: which repo, which branch, and where inside it you
+# opened this from. The list covers the WHOLE repo, not the directory you were in, so
+# without this it is easy to lose track of which repo you are acting on - particularly
+# after `w` has hopped you between sibling repos.
+#
+# symbolic-ref, not rev-parse --abbrev-ref: the latter prints the literal "HEAD" on a
+# detached or unborn head, where the short sha is what you actually want to see.
+BRANCH=$(git -C "$ROOT" symbolic-ref --short -q HEAD 2>/dev/null)
+[ -n "$BRANCH" ] || BRANCH=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)
+# The path shown is relative to the repo root (empty at the root itself), which stays
+# short and says more than an absolute path that is mostly $HOME.
+REL=${DIR#"$ROOT"}
+REL=${REL#/}
+CTX="$(basename "$ROOT")${BRANCH:+ ($BRANCH)}${REL:+  $REL}"
+HDR="$(printf '\033[38;5;110m%s\033[0m\n%s' "$CTX" "$(sh "$X/wrap-header.sh" '[s] stage/unstage  [p] hunks  [d] discard  [c] commit  [r] refresh  [ctrl-u/d] scroll diff  [→] edit (unstaged) / diff (staged)')")"
 # Rows the list must yield to chrome: the (possibly wrapped) header lines plus the
 # preview window's top and bottom border. Sizing the list to the item count means
 # giving the preview whatever is left: preview = TERMH - items - OVER. Getting OVER
