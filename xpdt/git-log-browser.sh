@@ -27,6 +27,7 @@ while : ; do
         --bind "ctrl-p:execute(sh \"$X/git-cherry-pick.sh\" \"\$XPDT_ROOT\" {1})+reload($LOG)" \
         --bind 'ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
         --bind 'shift-up:preview-up,shift-down:preview-down' \
+        --bind 'ctrl-t:toggle-preview' \
         --bind 'right:accept,enter:ignore,left:abort')
   [ -z "$LINE" ] && break
   HASH=$(printf '%s\n' "$LINE" | awk '{print $1}')
@@ -59,5 +60,6 @@ while : ; do
         --bind "right:execute(sh \"$X/diff-view.sh\" \"\$XPDT_ROOT\" commit {-1} \"\$XPDT_HASH\")" \
         --bind 'ctrl-u:preview-half-page-up,ctrl-d:preview-half-page-down' \
         --bind 'shift-up:preview-up,shift-down:preview-down' \
+        --bind 'ctrl-t:toggle-preview' \
         --bind 'enter:ignore,left:abort'
 done
