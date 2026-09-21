@@ -76,6 +76,8 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "opt-drag" "hold Option / ⌥ (macOS) and drag to select text, then copy"
   row "shift-drag" "or hold Shift instead (depends on the terminal)"
   row "" "- bypasses the mouse capture for a normal selection"
+  row "" "- the file listing captures the mouse too, unless you turn the"
+  row "" "  mouse setting off in the , menu"
   row "right" "or open the file in neovim to v-select and y-yank"
   row "" "- <space>Y in neovim copies the whole file to the clipboard"
   sec "SEARCH  (/ and \\)"

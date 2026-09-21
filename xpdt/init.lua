@@ -44,6 +44,18 @@ end
 -- read here at load and a toggle takes effect on the next launch.
 xplr.config.general.show_hidden = read_bool_setting("show-hidden", true)
 
+-- Mouse wheel scrolling in the file listing. xplr defaults this OFF, which made the
+-- wheel work in every fzf view (the changes browser, the popups - fzf enables mouse
+-- itself) but not in the main listing, so the app felt inconsistent. xplr acts on the
+-- WHEEL only - scroll up/down moves the focus - and ignores clicks entirely.
+--
+-- The trade-off: with mouse capture on, dragging to select text in the listing needs
+-- the terminal bypass (hold Option on macOS, or Shift), exactly as it already does in
+-- the fzf views - see the `h` popup's SELECT / COPY TEXT section. Turning the setting
+-- off restores plain drag-select here. Like show_hidden there is no runtime message
+-- worth using for this, so it is read at load and a change applies on the next launch.
+xplr.config.general.enable_mouse = read_bool_setting("mouse", true)
+
 xplr.config.layouts.builtin.default = { Dynamic = "custom.render_layout" }
 
 xplr.config.modes.builtin.default.key_bindings.on_key["enter"] = {
