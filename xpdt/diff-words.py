@@ -95,11 +95,23 @@ SIMILAR = 0.5
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
+MAX_GROUPS = 8  # bat processes per side
 
-def _bat_cmd(path):
-    bat = shutil.which("bat")
-    if not bat:
-        return None
+# A backstop against a wedged bat, not a performance budget - it is deliberately far
+# above any real cost so that the same diff always renders the same way. A tight
+# timeout was tried and reverted: bat's cost is a property of the language, not of the
+# input size (47 kB of Lua highlights in 0.10s and 19 kB of Python in 0.08s, while
+# 14 kB of long-line Markdown takes 0.70s and 400 such lines take 2.85s - syntect is
+# pathological on long Markdown lines, and the same bytes named .txt take 0.02s), so
+# no single cutoff separates "slow language" from "slow machine". At 0.6s this README's
+# own diffs landed right on the boundary and highlighting flickered on and off between
+# renders. Letting it finish costs at worst a few hundred ms of preview lag, which fzf
+# renders asynchronously anyway - it never delays a keypress - and is the same cost the
+# changes browser has always paid on the same files.
+BAT_TIMEOUT = 5
+
+
+def _bat_cmd(bat, path):
     return [
         bat,
         "--color=always",
@@ -116,7 +128,7 @@ def _bat_cmd(path):
     ]
 
 
-def _collect(proc, lines):
+def _collect(proc, lines, timeout=BAT_TIMEOUT):
     """Feed one bat process its input and map its output back onto `lines`, or None if
     anything is off - callers then fall back to flat colouring rather than mis-colour
     the diff.
@@ -135,7 +147,7 @@ def _collect(proc, lines):
         # N-1), the length check below fails, and syntax highlighting silently falls
         # back to flat - which is most multi-file diffs, since a hunk commonly ends on
         # a blank line.
-        out, _ = proc.communicate(input="\n".join(lines) + "\n", timeout=5)
+        out, _ = proc.communicate(input="\n".join(lines) + "\n", timeout=timeout)
     except Exception:
         try:
             proc.kill()
@@ -151,50 +163,93 @@ def _collect(proc, lines):
     return got if len(got) == len(lines) else None
 
 
-def highlight_sides(old, new, path):
-    """Syntax-colour the old and new sides, with both bat processes started up front.
+def _group_key(path):
+    """Group paths by what bat keys its language off: the extension, or the whole name
+    when there is none (Makefile, Dockerfile)."""
+    name = os.path.basename(path)
+    ext = os.path.splitext(name)[1]
+    return ext.lower() if ext else name
 
-    This is an fzf --preview, so it re-runs on every arrow key in the changes browser
-    and bat's startup dominates: starting the second before waiting on the first
-    overlaps that cost. Either side may be empty (a new file has no old side), and that
-    side is not spawned at all."""
-    if not path:
+
+def _spawn(cmd):
+    try:
+        return subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except Exception:
+        return None
+
+
+def highlight_sides(old, new, path, old_paths, new_paths):
+    """Syntax-colour the old and new sides, returning a list per side the same length as
+    its input, holding the coloured line or None where colouring was not possible. A
+    None falls back to flat colouring at the point of use, so one file failing does not
+    cost the rest of the diff its highlighting.
+
+    `path` (from --syntax) forces one language over the whole diff, which is what a
+    caller previewing a single file passes. Without it the language is taken per file
+    from the diff's own `---` / `+++` headers, so a commit or a stash touching several
+    files - which is most of what the history and stash browsers show - is coloured file
+    by file instead of not at all. Lines are grouped by extension rather than by file so
+    that a commit touching twenty shell scripts still costs one bat process per side,
+    and the groups are capped: past MAX_GROUPS the biggest are the ones that get
+    coloured, since they are the bulk of what is on screen.
+
+    This is an fzf --preview, so it re-runs on every arrow key and bat's startup
+    dominates. Every process is therefore started before any of them is fed, and they
+    are fed and read on threads - communicate() owns stdin, so collecting in sequence
+    would leave each process blocked on an unfed pipe until the one before it finished.
+    """
+    bat = shutil.which("bat")
+    if not bat:
         return None, None
-    cmd = _bat_cmd(path)
-    if cmd is None:
+
+    jobs = []  # (side, indices into that side, the lines at those indices, a path)
+    for side, lines, paths in (("old", old, old_paths), ("new", new, new_paths)):
+        groups = {}
+        for i in range(len(lines)):
+            # paths can be shorter than lines only if classify() and this function ever
+            # disagree; index defensively rather than mis-colour the whole side.
+            src = path or (paths[i] if i < len(paths) else None)
+            if not src:
+                continue
+            group = groups.setdefault(_group_key(src), [src, []])
+            group[1].append(i)
+        ranked = sorted(groups.values(), key=lambda g: len(g[1]), reverse=True)
+        for src, idxs in ranked[:MAX_GROUPS]:
+            jobs.append((side, idxs, [lines[i] for i in idxs], src))
+
+    if not jobs:
         return None, None
 
-    def spawn(lines):
-        if not lines:
-            return None
-        try:
-            return subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-            )
-        except Exception:
-            return None
+    procs = [_spawn(_bat_cmd(bat, src)) for _, _, _, src in jobs]
 
-    po, pn = spawn(old), spawn(new)
-    # Collected on threads so both bat processes are fed and read at the same time.
-    # Collecting them in sequence does not overlap: communicate() owns stdin, so the
-    # second process just sits blocked on an unfed pipe until the first finishes, and
-    # the concurrency is only in the spawn.
-    out = {}
+    results = [None] * len(jobs)
 
-    def collect(key, proc, lines):
-        out[key] = _collect(proc, lines)
+    def collect(j):
+        results[j] = _collect(procs[j], jobs[j][2])
 
-    to = threading.Thread(target=collect, args=("old", po, old))
-    tn = threading.Thread(target=collect, args=("new", pn, new))
-    to.start()
-    tn.start()
-    to.join(timeout=10)
-    tn.join(timeout=10)
-    return out.get("old"), out.get("new")
+    threads = [threading.Thread(target=collect, args=(j,)) for j in range(len(jobs))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        # Past the point where _collect would itself have given up and killed bat; a
+        # thread still running here is wedged, and its group stays flat.
+        t.join(timeout=BAT_TIMEOUT + 1)
+
+    out = {"old": [None] * len(old), "new": [None] * len(new)}
+    for j, (side, idxs, sub, _) in enumerate(jobs):
+        got = results[j]
+        if got is None:
+            continue
+        target = out[side]
+        for k, i in enumerate(idxs):
+            target[i] = got[k]
+    return out["old"], out["new"]
 
 
 def column_mask(toks, mask):
@@ -284,7 +339,12 @@ def emit_group(out, dels, adds, old_hl, new_hl):
                 toks, mask = TOKEN.findall(text), None
             mask = mask or [False] * len(toks)
             idx = rec[col]
-            if hl is not None and idx is not None and idx < len(hl):
+            if (
+                hl is not None
+                and idx is not None
+                and idx < len(hl)
+                and hl[idx] is not None
+            ):
                 out.append(
                     tint(
                         hl[idx], column_mask(toks, mask), sign, sign_fg, base_bg, str_bg
@@ -297,16 +357,46 @@ def emit_group(out, dels, adds, old_hl, new_hl):
     emit(adds, masks_a, new_hl, 3, "+", ADD_SIGN, ADD_BG, ADD_STR)
 
 
+def _path_of(line):
+    """The file path from a `---` / `+++` diff header, or None for /dev/null. Only the
+    name matters here - it is handed to bat purely to pick a language."""
+    path = line[4:]
+    if "\t" in path:  # some diff producers append a timestamp
+        path = path.split("\t", 1)[0]
+    if path == "/dev/null":
+        return None
+    if path[:2] in ("a/", "b/"):
+        path = path[2:]
+    if len(path) > 1 and path[0] == '"' and path[-1] == '"':
+        path = path[1:-1]  # git C-quotes a path holding a byte >= 0x80
+    return path or None
+
+
 def classify(lines):
     """Split the diff into records and tag each body line with its position in the
     old-side and new-side content streams (a context line is in both). Those two
     streams are what gets syntax-highlighted, so each side is coloured with its own
-    correct context instead of with the two interleaved."""
+    correct context instead of with the two interleaved. Each content line is also
+    tagged with the file it came from, so a diff spanning several files can be
+    highlighted a language at a time rather than all as one."""
     recs, old, new = [], [], []
+    old_paths, new_paths = [], []
     in_hunk = False
+    old_p = new_p = cur = None
     for line in lines:
         if line.startswith("diff --git ") or line.startswith("diff --cc "):
             in_hunk = False
+            old_p = new_p = cur = None
+        if not in_hunk:
+            # Outside a hunk these are headers; inside one the first character is the
+            # marker and a `--- ` line is just deleted content (see the note below).
+            # Prefer the new-side name, falling back to the old one for a deletion.
+            if line.startswith("--- "):
+                old_p = _path_of(line)
+                cur = new_p or old_p
+            elif line.startswith("+++ "):
+                new_p = _path_of(line)
+                cur = new_p or old_p
         if line.startswith("@@"):
             in_hunk = True
             recs.append(("hunk", line, None, None))
@@ -321,10 +411,12 @@ def classify(lines):
             if line.startswith("-"):
                 recs.append(("del", line, len(old), None))
                 old.append(expand(line[1:]))
+                old_paths.append(cur)
                 continue
             if line.startswith("+"):
                 recs.append(("add", line, None, len(new)))
                 new.append(expand(line[1:]))
+                new_paths.append(cur)
                 continue
             if line.startswith("\\"):
                 # "\ No newline at end of file" - a marker, not content.
@@ -334,6 +426,8 @@ def classify(lines):
                 recs.append(("ctx", line, len(old), len(new)))
                 old.append(expand(line[1:]))
                 new.append(expand(line[1:]))
+                old_paths.append(cur)
+                new_paths.append(cur)
                 continue
             in_hunk = False
         if line.startswith(HDR_PREFIXES):
@@ -344,7 +438,7 @@ def classify(lines):
             recs.append(("ctx", line, None, None))
         else:
             recs.append(("other", line, None, None))
-    return recs, old, new
+    return recs, old, new, old_paths, new_paths
 
 
 def main():
@@ -359,8 +453,8 @@ def main():
     if lines and lines[-1] == "":
         lines.pop()
 
-    recs, old, new = classify(lines)
-    old_hl, new_hl = highlight_sides(old, new, path)
+    recs, old, new, old_paths, new_paths = classify(lines)
+    old_hl, new_hl = highlight_sides(old, new, path, old_paths, new_paths)
 
     out = []
     i, n = 0, len(recs)
@@ -385,7 +479,12 @@ def main():
         elif kind == "ctx":
             # Context keeps the syntax colour with no background, so the eye reads the
             # tinted add/remove rows as the changes and everything else as plain code.
-            if new_hl is not None and ni is not None and ni < len(new_hl):
+            if (
+                new_hl is not None
+                and ni is not None
+                and ni < len(new_hl)
+                and new_hl[ni] is not None
+            ):
                 out.append(" " + new_hl[ni] + RESET)
             else:
                 out.append(CTX + expand(line) + RESET)
