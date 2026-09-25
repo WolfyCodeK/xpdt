@@ -171,6 +171,53 @@ def _group_key(path):
     return ext.lower() if ext else name
 
 
+# A hunk is a fragment of a file, so bat starts parsing it with no state. When the
+# fragment opens on the CLOSING half of a multi-line construct - the `"""` that ends a
+# Python docstring, a `*/`, a `-->` - syntect reads it as an opening one instead and
+# colours everything after it as string or comment content, which on screen reads as no
+# highlighting at all. Feeding bat the matching opener first puts it in the state the
+# real file would have had at that line, and the extra line is dropped from the output.
+#
+# Only a first line that is the delimiter and nothing else counts. A fragment starting
+# `"""Module docstring.` really is opening one and highlights correctly already, and a
+# lone `"""` further down is usually a docstring being opened under a `def`, where a
+# primer would make things worse - so the fix is deliberately limited to the case the
+# state is unambiguous.
+OPENER_FOR = {
+    '"""': '"""',
+    "'''": "'''",
+    "*/": "/*",
+    "-->": "<!--",
+    "*)": "(*",
+    "=end": "=begin",
+}
+
+
+def _primer(lines):
+    """The opener a fragment is missing, or None if it is not missing one.
+
+    Only a first line that is the delimiter and nothing else is considered, because
+    that is where the fragment's state is decidable. A fragment starting
+    `\"\"\"Module docstring.` is genuinely opening one and already highlights correctly.
+    """
+    if not lines:
+        return None
+    first = lines[0].strip()
+    opener = OPENER_FOR.get(first)
+    if opener is None:
+        return None
+    if opener != first:
+        # An asymmetric pair (*/ closes /*): a closing token on the first line cannot
+        # have been opened inside the fragment, so the construct began above it.
+        return opener
+    # A symmetric pair (\"\"\" both opens and closes), so count them instead. An odd
+    # number means the first one has no partner in the fragment and is closing
+    # something that started above - prime it. An even number means they pair up here
+    # and the first is opening a docstring under a def, where a primer would push
+    # every line one state out and make the colouring worse rather than better.
+    return opener if sum(ln.strip() == first for ln in lines) % 2 else None
+
+
 def _spawn(cmd):
     try:
         return subprocess.Popen(
@@ -208,7 +255,7 @@ def highlight_sides(old, new, path, old_paths, new_paths):
     if not bat:
         return None, None
 
-    jobs = []  # (side, indices into that side, the lines at those indices, a path)
+    jobs = []  # (side, indices, the lines to feed bat, a path, whether a primer was added)
     for side, lines, paths in (("old", old, old_paths), ("new", new, new_paths)):
         groups = {}
         for i in range(len(lines)):
@@ -221,12 +268,16 @@ def highlight_sides(old, new, path, old_paths, new_paths):
             group[1].append(i)
         ranked = sorted(groups.values(), key=lambda g: len(g[1]), reverse=True)
         for src, idxs in ranked[:MAX_GROUPS]:
-            jobs.append((side, idxs, [lines[i] for i in idxs], src))
+            sub = [lines[i] for i in idxs]
+            primer = _primer(sub)
+            jobs.append(
+                (side, idxs, ([primer] + sub) if primer else sub, src, bool(primer))
+            )
 
     if not jobs:
         return None, None
 
-    procs = [_spawn(_bat_cmd(bat, src)) for _, _, _, src in jobs]
+    procs = [_spawn(_bat_cmd(bat, src)) for _, _, _, src, _ in jobs]
 
     results = [None] * len(jobs)
 
@@ -242,10 +293,12 @@ def highlight_sides(old, new, path, old_paths, new_paths):
         t.join(timeout=BAT_TIMEOUT + 1)
 
     out = {"old": [None] * len(old), "new": [None] * len(new)}
-    for j, (side, idxs, sub, _) in enumerate(jobs):
+    for j, (side, idxs, sub, _, primed) in enumerate(jobs):
         got = results[j]
         if got is None:
             continue
+        if primed:
+            got = got[1:]
         target = out[side]
         for k, i in enumerate(idxs):
             target[i] = got[k]
