@@ -11,11 +11,11 @@ changes, history and stash browsers, syntax-highlighted word-level diffs and a
 matching Neovim config - every action is one key away, and by default every
 one that changes your work asks for a two-digit code first.
 
-[![Version](https://img.shields.io/github/v/tag/WolfyCodeK/xpdt?label=version&sort=semver&color=272822)](https://github.com/WolfyCodeK/xpdt/tags)
-[![Last commit](https://img.shields.io/github/last-commit/WolfyCodeK/xpdt?color=272822)](https://github.com/WolfyCodeK/xpdt/commits/main)
-![Platform: macOS, Linux and WSL2](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL2-272822)
-![Built on xplr 1.1.0](https://img.shields.io/badge/built%20on-xplr%201.1.0-272822)
-[![Licence: The Unlicense](https://img.shields.io/badge/licence-Unlicense-272822)](LICENSE)
+[![Version](https://img.shields.io/github/v/tag/WolfyCodeK/xpdt?label=version&sort=semver&color=4f7d18)](https://github.com/WolfyCodeK/xpdt/tags)
+[![Last commit](https://img.shields.io/github/last-commit/WolfyCodeK/xpdt?color=4f7d18)](https://github.com/WolfyCodeK/xpdt/commits/main)
+![Platform: macOS, Linux and WSL2](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL2-4f7d18)
+![Built on xplr 1.1.0](https://img.shields.io/badge/built%20on-xplr%201.1.0-4f7d18)
+[![Licence: The Unlicense](https://img.shields.io/badge/licence-Unlicense-4f7d18)](LICENSE)
 
 **[Install](#install)** · **[Keys](#keys)** · **[Settings](#settings)** · **[How it works](xpdt/README.md)**
 
