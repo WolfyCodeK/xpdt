@@ -1,47 +1,58 @@
+<div align="center">
+
+<img src="docs/images/icon.svg" width="96" height="96" alt="xpdt icon: a file tree with one entry selected">
+
 # xpdt
 
-xpdt is my terminal file manager and editor setup: a heavily customised
-[xplr](https://xplr.dev) (a terminal file manager) wired up as a keyboard-driven
-git client and code browser, paired with a matching Neovim config. The two share
-a Monokai palette and hand off to each other - `ctrl-e` in a file preview opens
-Neovim on the exact line.
+**A keyboard-driven git client and code browser for the terminal.**
 
-The custom config installs alongside stock xplr rather than replacing it, so you
-get two commands:
+A heavily customised [xplr](https://xplr.dev) file manager with live git status,
+changes, history and stash browsers, syntax-highlighted word-level diffs and a
+matching Neovim config - every action is one key away, and by default every
+one that changes your work asks for a two-digit code first.
 
-- **`xpdt`** launches the customised setup (it runs `xplr -c ~/.config/xpdt/init.lua`).
-- **`xplr`** stays completely stock - the plain, out-of-the-box file manager.
+[![Version](https://img.shields.io/github/v/tag/WolfyCodeK/xpdt?label=version&sort=semver&color=272822)](https://github.com/WolfyCodeK/xpdt/tags)
+[![Last commit](https://img.shields.io/github/last-commit/WolfyCodeK/xpdt?color=272822)](https://github.com/WolfyCodeK/xpdt/commits/main)
+![Platform: macOS, Linux and WSL2](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL2-272822)
+![Built on xplr 1.1.0](https://img.shields.io/badge/built%20on-xplr%201.1.0-272822)
+[![Licence: The Unlicense](https://img.shields.io/badge/licence-Unlicense-272822)](LICENSE)
 
-- **`xpdt/`** goes in `~/.config/xpdt`. The customised xplr config: git changes,
-  log and stash browsers, syntax-highlighted diffs, an inline diff viewer with change-to-change navigation,
-  file create / rename / delete / move, a git command menu, an optional full-screen file preview,
-  a toggleable two-digit confirmation gate on every mutating action, selectable colour themes, and full Nerd Font theming.
-  Detailed docs are in [`xpdt/README.md`](xpdt/README.md).
-- **`nvim/`** goes in `~/.config/nvim`. A Neovim config (lazy.nvim, Treesitter on its
-  `main` branch - which builds parsers with the pinned `tree-sitter` CLI, needs a C
-  compiler present - a Monokai theme colour-matched to bat, or Gruvbox / Nord / Dracula / Tokyo Night
-  switchable in xpdt's settings, plus leap, surround, comment,
-  lualine and indent guides) that opens files from xpdt - `→` on a file, or `→` in the git changes
-  browser - and copies the whole file to the clipboard with `<space>Y`.
-  It also adds opt-in, per-language **intellisense** (LSP) - you pick the languages and
-  frameworks you want in xpdt's settings menu and it installs just those servers for you
-  (via Mason); it uses Neovim's built-in LSP client and completion, with nvim-lspconfig supplying each
-  server's config. See `xpdt/README.md`.
+**[Install](#install)** · **[Keys](#keys)** · **[Settings](#settings)** · **[How it works](xpdt/README.md)**
+
+</div>
+
+<img src="docs/images/main-view.webp" alt="The main view: a file listing with a git status marker and last author for each file, the focused file init.lua marked as modified, a changes box listing one staged and one unstaged file, and the branch's recent commits in a git history box below.">
+
+<sub>Every screenshot is xpdt browsing its own repository, with a couple of edits in progress.</sub>
+
+## What it does
+
+- **Git in the file listing** — every file shows its status and the last person to change it. Beside the listing sit a live changes box and the branch's recent history, both read from a cache, so moving around never waits on git.
+- **Changes browser** (`enter`) — stage or unstage whole files or single hunks, discard, and commit. Diffs are syntax highlighted, and within a changed line the exact words that differ are picked out.
+- **Commit history** (`;`) — browse any local or remote branch, open a commit to go through its files, cherry-pick a commit onto the current branch, or undo the last one.
+- **Stash browser** (`s`) — create, apply, pop, drop and clear stashes.
+- **Search** (`/` and `\`) — find files by name, or search inside them, across the current folder or the whole repository.
+- **File operations** — create, rename with the current name already filled in, move by fuzzy-picking the destination, and delete to the Trash.
+- **Confirmation gate** — by default, anything that changes your files or your repository asks you to type a random two-digit code first, so a stray key cannot discard your work. Each action can be switched on or off in the settings.
+- **Neovim to match** — `→` opens a file in Neovim, at the matching line when you came from a search. An inline diff viewer steps from change to change, and intellisense is opt-in per language, so only the servers you pick are installed.
+- **Five themes** — Monokai, Gruvbox, Nord, Dracula and Tokyo Night, each recolouring xpdt, Neovim, bat and the fzf browsers together.
+
+<img src="docs/images/changes-browser.webp" alt="The changes browser: a staged and an unstaged file listed at the top, with the repository, branch and folder above them, and below, the unstaged file's diff with Lua syntax highlighting. In a changed comment only the words 'edits' and 'a pull' are highlighted, and in the changed line only the numbers 10 and 15.">
+
+<sub>The changes browser. Only the words that changed light up, over the file's own syntax colours.</sub>
+
+<img src="docs/images/history-browser.webp" alt="The commit history browser: a list of commits with short hashes, a pushed marker, subject and author, one commit focused, and below it that commit's diff of a shell script, with removed and added lines tinted and the changed words picked out.">
+
+<sub>The commit history. The diff underneath follows the focused commit; `ctrl-t` hides it to give the list the whole screen.</sub>
 
 ## Install
 
-xpdt installs pinned, checksum-verified tool versions (the config relies on recent
-xplr, fzf and Neovim features, so exact releases matter), then symlinks the two
-configs into `~/.config`:
-
-- **xplr** — 1.1.0
-- **bat** — 0.26.1
-- **fzf** — 0.74.0
-- **ripgrep** — 14.1.1
-- **Neovim** — 0.12.4
-- **tree-sitter** — 0.26.11
-
-### macOS and Linux
+You need macOS or Linux (Windows works through WSL2, below) with git, python3,
+curl or wget, and a C compiler for Neovim's syntax parsers - on macOS the Xcode
+command line tools provide all of them. You also need a
+[Nerd Font](https://www.nerdfonts.com/) set as your terminal font so the icons
+render; Hack Nerd Font is a good choice, and is what the screenshots use.
+Everything else is fetched for you.
 
 ```sh
 git clone https://github.com/WolfyCodeK/xpdt.git ~/.xpdt
@@ -49,92 +60,170 @@ cd ~/.xpdt
 ./install.sh
 ```
 
-Keep the clone somewhere stable (the example uses `~/.xpdt`); the configs are
-symlinked out of it, so moving or deleting it breaks them.
+Make sure `~/.local/bin` is on your `PATH`, then run **`xpdt`**.
 
-`install.sh` downloads the pinned release binaries into `~/.local` (override with
-`--prefix DIR` or the `XPDT_PREFIX` env var), backs up any existing
-`~/.config/xpdt` or `~/.config/nvim`, symlinks this repo in their place, installs
-the `xpdt` launcher next to the `xplr` binary, and bootstraps the Neovim plugins.
+Keep the clone somewhere stable: the configs are symlinked out of it, so moving
+or deleting it breaks them.
 
-At runtime xpdt keeps a small git-state cache in `${XDG_CACHE_HOME:-~/.cache}/xpdt`
-(a couple of files per repo you visit) so that drawing a frame never has to run git.
-It is regenerated on demand and safe to delete.
+`install.sh` downloads pinned releases of the tools xpdt relies on into
+`~/.local`, backs up any existing `~/.config/xpdt` and `~/.config/nvim`,
+symlinks this repository in their place, installs the `xpdt` launcher next to
+`xplr`, and installs the Neovim plugins. The config depends on recent features of
+these tools, so exact versions matter:
 
-**Every download is verified against a pinned SHA-256 before it is used**, and a
-mismatch aborts the install rather than running the binary - version pinning alone
-would not catch a swapped or tampered artifact. The one exception is the
-from-source fallback for xplr on older Linux: cargo fetches it and its dependencies
-from crates.io, verified by cargo's own registry checksums rather than by these pins. An artifact with no pinned hash is
-refused outright, so bumping a tool version means re-pinning its hash. The ripgrep,
-fzf and xplr hashes were cross-checked against the checksum files those projects
-publish; bat, Neovim and tree-sitter publish none, so theirs were recorded from a
-verified-TLS download. Verification needs `sha256sum`, `shasum` or `openssl` (macOS
-and Linux both ship at least one).
-Re-running it **keeps your settings** - the theme, the confirmation-gate choices and
-the intellisense languages are carried across even if you reinstall from a fresh
-clone or over an existing `~/.config/xpdt` directory. To go back to factory settings
-deliberately, use the `RESET` row at the bottom of xpdt's `,` settings menu; it
-always asks for the two-digit code.
+- **xplr** — 1.1.0
+- **fzf** — 0.74.0
+- **bat** — 0.26.1
+- **ripgrep** — 14.1.1
+- **Neovim** — 0.12.4
+- **tree-sitter** — 0.26.11
 
-Ensure `~/.local/bin` is on your `PATH`, and set a
-[Nerd Font](https://www.nerdfonts.com/) (for example Hack Nerd Font) as your
-terminal font so the icons render. Re-running is safe and idempotent.
+**Every download is checked against a pinned SHA-256 before it is used**, and a
+mismatch stops the install rather than running the binary - a pinned version on
+its own would not catch a swapped or tampered file, and a tool with no pinned
+hash is refused outright. The ripgrep, fzf and xplr hashes were cross-checked
+against the checksum files those projects publish; bat, Neovim and tree-sitter
+publish none, so theirs were recorded from a verified-TLS download. Checking
+needs `sha256sum`, `shasum` or `openssl`, and macOS and Linux both ship at least
+one.
 
-Flags: `--prefix DIR`, `--tools-only`, `--config-only`, `--no-nvim-bootstrap`.
+Options: `--prefix DIR` (or `XPDT_PREFIX`) to install somewhere other than
+`~/.local`, `--tools-only`, `--config-only`, and `--no-nvim-bootstrap`.
 
-Once it is on your `PATH`, start the customised setup with **`xpdt`**. Plain
-**`xplr`** remains the stock file manager - the installer never writes a
-`~/.config/xplr`, so xplr keeps its out-of-the-box defaults. Run `xpdt --help`
-for a one-screen summary of the setup (it then prints xplr's own `--help`); all
-xplr flags pass straight through.
-
-xpdt is versioned independently of the xplr engine (source of truth: the
-[`VERSION`](VERSION) file, git-tagged `v<version>`). `xpdt --version` prints both,
-for example `xpdt 1.0.0 (xplr 1.1.0)`, while `xplr --version` reports xplr alone.
+**xpdt sits alongside stock xplr rather than replacing it.** `xpdt` runs
+`xplr -c ~/.config/xpdt/init.lua`; plain `xplr` keeps its out-of-the-box
+behaviour, and the installer never writes a `~/.config/xplr`. Every xplr flag
+passes straight through `xpdt`, `xpdt --help` gives a one-screen summary, and
+`xpdt --version` reports both, for example `xpdt 1.0.0 (xplr 1.1.0)`.
 
 ### Windows (WSL2)
 
-xplr publishes no native Windows build and the config is POSIX-shell based, so
-xpdt runs under [WSL2](https://learn.microsoft.com/windows/wsl/install):
+xplr publishes no native Windows build and the config is POSIX shell, so xpdt
+runs under [WSL2](https://learn.microsoft.com/windows/wsl/install):
 
 ```powershell
 wsl --install        # first time only; reboot, then open the Ubuntu shell
 ```
 
-Inside the Ubuntu (WSL) shell, follow the macOS and Linux steps above. Set a
-Nerd Font in Windows Terminal (Settings -> your profile -> Appearance -> Font
-face). If you only want the editor, the `nvim/` config also runs on native
-Windows Neovim.
+In the Ubuntu shell, follow the steps above, and set a Nerd Font in Windows
+Terminal under Settings, your profile, Appearance, Font face. If you only want
+the editor, the `nvim/` config also runs on native Windows Neovim.
 
 ### Linux notes
 
-The pinned xplr binary is dynamically linked against a recent glibc (2.39+ -
-Ubuntu 24.04, Debian 13, Fedora 39 and newer). On older systems `install.sh`
-builds xplr 1.1.0 from source with Rust ([rustup.rs](https://rustup.rs)) when
-`cargo` is available. macOS is unaffected.
+The pinned xplr binary needs glibc 2.39 or newer (Ubuntu 24.04, Debian 13,
+Fedora 39 and later). On older systems `install.sh` builds xplr 1.1.0 from source
+instead when `cargo` is available ([rustup.rs](https://rustup.rs)); that build is
+verified by cargo's own registry checksums rather than by the pins above.
 
-Both of the features that used to be macOS-only now work everywhere. Clipboard
-copy takes the first tool that exists (`pbcopy`, `wl-copy`, `xclip`, `clip.exe`)
-and says so when there is none, rather than reporting a copy that did not happen;
-delete prefers the platform's Trash (Finder, then `trash-put`, then `gio trash`)
-and only falls back to an unrecoverable delete when no trash tool exists, which
-the confirmation prompt tells you. The `/` file search and the preview's
-external-change auto-reload detect the GNU vs BSD `stat` format flag rather than
-assuming macOS.
+Clipboard copy uses whichever of `pbcopy`, `wl-copy`, `xclip` or `clip.exe`
+exists, and says so when there is none rather than reporting a copy that did not
+happen. Delete prefers the platform's Trash - Finder, then `trash-put`, then
+`gio trash` - and only falls back to an unrecoverable delete when there is no
+trash tool, which the confirmation prompt tells you.
 
-## Credits and license
+### Updating
 
-This is a personal, heavily customised setup for [xplr](https://xplr.dev) - the
-open-source terminal file manager by
-[sayanarijit](https://github.com/sayanarijit/xplr) (MIT licensed). It is
-essentially a modded xplr: everything here is built on top of xplr's Lua API and
-would not exist without that project. The Neovim side is likewise built on
-[lazy.nvim](https://github.com/folke/lazy.nvim), nvim-treesitter, the
-[monokai.nvim](https://github.com/tanvirtin/monokai.nvim) theme, and the other
-plugins listed in [`nvim/init.lua`](nvim/init.lua).
+```sh
+cd ~/.xpdt && git pull && ./install.sh
+```
 
-The files in this repository - the configs, shell scripts, and theme - are
-released into the public domain under [The Unlicense](LICENSE): copy, modify, and
-reuse them freely, with or without attribution. xplr, Neovim, and the bundled
-plugins remain under their own licenses.
+Re-running the installer is safe: tools already at their pinned version are
+skipped, and **your settings are kept** - the theme, the confirmation-gate
+choices and the intellisense languages carry across, even into a fresh clone.
+To go back to the defaults deliberately, use the reset row at the bottom of the
+`,` settings menu, which always asks for the two-digit code.
+
+## Keys
+
+Press `h` inside xpdt for the full list, and `ctrl-h` for a Neovim cheat sheet.
+The ones you will use most:
+
+**Moving around**
+
+- `↑` `↓` move, `→` opens a folder or opens a file in Neovim, `←` goes up a folder
+- `'` jumps back to where you started, `w` hops to the next repository alongside this one
+- `q` quits
+
+**Opening things**
+
+- `enter` the changes browser, `;` the commit history, `s` the stash browser
+- `/` find files by name, `\` search inside files
+- `g` the git menu - status, fetch, checkout and pull
+- `,` settings, `h` help
+
+**Files** - each asks for the two-digit code by default
+
+- `a` new file, `f` new folder
+- `m` rename, `M` move to a folder you pick from a fuzzy list
+- `d` delete, to the Trash where the platform has one
+
+**In the changes browser**
+
+- `s` stage or unstage the file, `p` pick individual hunks, `d` discard, `c` commit
+- `→` edit an unstaged file, or open a staged one in the inline diff viewer
+- `ctrl-u` / `ctrl-d` scroll the diff, `r` refresh, `←` back
+
+**In the commit history**
+
+- `→` open a commit and go through its files
+- `ctrl-b` view another branch, `ctrl-p` cherry-pick onto the current branch, `ctrl-z` undo the last commit
+- `ctrl-t` hide or show the diff pane, `ctrl-u` / `ctrl-d` scroll it, `←` back
+
+Every letter is free for typing in the commit list's filter, which is why its
+actions are all ctrl keys.
+
+## Settings
+
+Press `,` to open the settings menu. Changes save as you make them; a few, such
+as the theme, take effect the next time you start xpdt.
+
+- **Confirmation gate** — a master switch, and a switch for each action that changes your files or your repository.
+- **General** — show hidden files, let the mouse wheel scroll the file listing (turn it off to get plain drag-select back), a panel of Claude Code sessions in the git history box, the one-line keybindings hint, and the logs strip.
+- **Neovim** — preview a file before opening it, let `←` at the start of a line return to xpdt, show a key-hint bar, and open unstaged files with their changes shown inline.
+- **Theme** — Monokai (the default), Gruvbox, Nord, Dracula or Tokyo Night.
+- **Git history** — how many columns wide the history box is.
+- **Intellisense** — switch on the languages and frameworks you want; only their servers are installed.
+- **Reset** — put everything back to the defaults.
+
+## How it works
+
+xpdt is three layers. [xplr](https://xplr.dev) draws the file listing and runs
+the keybindings, driven by one Lua file, [`xpdt/init.lua`](xpdt/init.lua). The
+browsers are [fzf](https://github.com/junegunn/fzf), launched by about fifty
+small POSIX shell scripts alongside it. And every diff preview is piped through
+[`diff-words.py`](xpdt/diff-words.py), which pairs up changed lines, finds the
+words that differ, and lays that over [bat](https://github.com/sharkdp/bat)'s
+syntax colours.
+
+Moving around never waits on git. A background refresh writes the repository's
+status and history to a small cache in `${XDG_CACHE_HOME:-~/.cache}/xpdt` and the
+listing draws from that. Git is read directly in only two places, both on
+purpose: the first time you enter a repository, where the alternative is an empty
+panel, and straight after something xpdt does itself - a stage, a commit, a
+checkout - so the next frame already shows the result. The cache is safe to
+delete.
+
+The design, the caching and every trade-off behind them are written up in
+[`xpdt/README.md`](xpdt/README.md).
+
+**Layout**
+
+- **`install.sh`** — fetches and verifies the pinned tools, links the configs, writes the launcher
+- **`xpdt/`** — the xplr config and its helper scripts, linked to `~/.config/xpdt`
+- **`nvim/`** — the Neovim config, linked to `~/.config/nvim`
+- **`docs/images/`** — the images in this README
+- **`VERSION`** — xpdt's own version, tagged `v<version>` in git and independent of xplr's
+
+## Credits and licence
+
+xpdt is a personal setup built entirely on [xplr](https://github.com/sayanarijit/xplr),
+the open-source terminal file manager by sayanarijit (MIT licensed) - it is
+essentially a modded xplr, and would not exist without that project's Lua API.
+The Neovim side is built on [lazy.nvim](https://github.com/folke/lazy.nvim),
+nvim-treesitter, the [monokai.nvim](https://github.com/tanvirtin/monokai.nvim)
+theme and the other plugins listed in [`nvim/init.lua`](nvim/init.lua).
+
+Everything in this repository is released into the public domain under
+[The Unlicense](LICENSE): copy it, change it and reuse it freely, with or without
+credit. xplr, Neovim and the plugins keep their own licences.

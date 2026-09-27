@@ -80,7 +80,7 @@ def expand(s):
     # ESC is stripped, not just tabs. `--color=never` only stops git adding colour; a
     # file that itself contains an ESC byte (a terminal capture, an icon preview) still
     # carries it through. Tokenising raw text and splicing our own codes in at token
-    # boundaries then landed them INSIDE a content escape, tearing it in half, and a
+    # boundaries then landed them inside a content escape, tearing it in half, and a
     # content reset mid-line killed the row tint and broke fzf soft-wrap. It also
     # desynchronised the word mask from bat's output, which has consumed those escapes.
     return s.replace("\t", "    ").replace("\x1b", "")
@@ -142,7 +142,7 @@ def _collect(proc, lines, timeout=BAT_TIMEOUT):
     if proc is None:
         return None
     try:
-        # Trailing newline matters: without it, a side whose last line is EMPTY loses
+        # Trailing newline matters: without it, a side whose last line is empty loses
         # that line (bat emits N-1 terminated lines, the split-and-pop then yields
         # N-1), the length check below fails, and syntax highlighting silently falls
         # back to flat - which is most multi-file diffs, since a hunk commonly ends on
@@ -172,7 +172,7 @@ def _group_key(path):
 
 
 # A hunk is a fragment of a file, so bat starts parsing it with no state. When the
-# fragment opens on the CLOSING half of a multi-line construct - the `"""` that ends a
+# fragment opens on the closing half of a multi-line construct - the `"""` that ends a
 # Python docstring, a `*/`, a `-->` - syntect reads it as an opening one instead and
 # colours everything after it as string or comment content, which on screen reads as no
 # highlighting at all. Feeding bat the matching opener first puts it in the state the
