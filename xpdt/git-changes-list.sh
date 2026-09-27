@@ -23,7 +23,7 @@ git -C "$1" status --porcelain -z 2>/dev/null \
         x = substr($0,1,1); y = substr($0,2,1); p = substr($0,4)
         if (x == "R" || x == "C" || y == "R" || y == "C") skip = 1
         # A path containing a newline is genuinely dropped here, as the comment above
-        # promises. Translating NUL to newline on its own used to SPLIT such a path
+        # promises. Translating NUL to newline on its own used to split such a path
         # across rows, which produced phantom entries and - worse - a row labelled with
         # only the first half of the name, so discarding it deleted a different,
         # unrelated file. Real newlines are parked on \001 first so they survive the

@@ -40,11 +40,11 @@ while : ; do
   [ -z "$LINE" ] && break
   HASH=$(printf '%s\n' "$LINE" | awk '{print $1}')
 
-  # core.quotePath=false keeps a non-ASCII filename raw; --name-status is TAB-separated,
+  # core.quotePath=false keeps a non-ASCII filename raw; --name-status is tab-separated,
   # so the file list below is read with a tab delimiter and {-1} (the last field, which
   # is the new name for a rename). With fzf's default whitespace delimiter, {-1} took
   # only the text after the last space, so any path with a space opened the wrong file.
-  # --first-parent -m so a MERGE commit lists files too: without it diff-tree prints
+  # --first-parent -m so a merge commit lists files too: without it diff-tree prints
   # nothing for a merge, and the blank row that produced previewed as
   # `git show <hash> -- ''` -> "fatal: empty string is not a valid pathspec".
   FILES=$(git -c core.quotePath=false -C "$ROOT" diff-tree --no-commit-id --name-status -r -m --first-parent "$HASH")

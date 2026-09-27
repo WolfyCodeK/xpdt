@@ -8,7 +8,7 @@ if ! git -C "$ROOT" rev-parse --verify -q HEAD~1 >/dev/null 2>&1; then
   exit 0
 fi
 SUBJ=$(git -C "$ROOT" log -1 --format='%h %s')
-# Name the branch as well as the commit: `ctrl-z` always acts on the CURRENT branch,
+# Name the branch as well as the commit: `ctrl-z` always acts on the current branch,
 # but the `;` browser can be viewing another one (via `b`), and the header said only
 # "[ctrl-z] undo" over that other branch's commits.
 BR=$(git -C "$ROOT" symbolic-ref --short -q HEAD || git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)

@@ -1,11 +1,11 @@
 #!/bin/sh
-# Print the ORIGINAL path of a staged rename or copy, given the new path - or nothing
+# Print the original path of a staged rename or copy, given the new path - or nothing
 # when the path is not the new side of one.
 #
-# The changes list deliberately shows a rename as a single row for the NEW path (the
+# The changes list deliberately shows a rename as a single row for the new path (the
 # `-z` record that carries the original is consumed by `skip`). Acting on that row with
 # the new path alone left the other half of the rename staged: unstaging produced a
-# staged `D old.txt` plus an untracked `new.txt`, and DISCARDING removed new.txt from
+# staged `D old.txt` plus an untracked `new.txt`, and discarding removed new.txt from
 # the working tree while leaving `D old.txt` staged - the file disappeared entirely
 # even though HEAD still had it. Both callers need the pair.
 #

@@ -94,7 +94,7 @@ get() { # get KEY -> 1 (on) or 0 (off); `theme` returns the theme name (default
     return
   fi
   if [ "$1" = history-width ]; then
-    # Validated on the way OUT as well as in, so a hand-edited config cannot feed a
+    # Validated on the way out as well as in, so a hand-edited config cannot feed a
     # junk width (or a shell fragment) through to the panel.
     v=$(sed -n 's/^history-width=//p' "$CFG" 2>/dev/null | head -n1)
     case "$v" in
@@ -147,7 +147,7 @@ toggle() { # toggle KEY (use __master__ for the master switch)
   fi
 }
 
-required() { # exit 0 if ACTION needs the code (master on AND this action on)
+required() { # exit 0 if ACTION needs the code (master on and this action on)
   [ "$(get enabled)" = 1 ] && [ "$(get "$1")" = 1 ]
 }
 
@@ -178,7 +178,7 @@ do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
   c=$(awk 'BEGIN { srand(); print int(10 + rand() * 90) }')
   # Fail closed if that somehow did not produce exactly two digits (never confirm blind).
   case "$c" in [1-9][0-9]) ;; *) printf 'Cancelled.\n' > /dev/tty; return 1 ;; esac
-  # Flush BEFORE the prompt is drawn, not after. Flushing afterwards discarded whatever
+  # Flush before the prompt is drawn, not after. Flushing afterwards discarded whatever
   # was typed during the ~20-40ms python spawn, so answering quickly left `read` waiting
   # for a keystroke it had already thrown away - the prompt sat there and the gate hung.
   # Flushing first also matches the intent: drop the burst that arrived before the
@@ -186,7 +186,7 @@ do_confirm() { # do_confirm MESSAGE -> 0 = confirmed, 1 = cancelled
   { python3 -S -c 'import termios,sys; termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)' < /dev/tty; } 2>/dev/null
   # Strip control bytes from the message before it reaches the terminal. It carries
   # untrusted text - a filename, a branch name, a commit subject or author - and these
-  # prompts print while xplr/fzf is suspended, so bytes go RAW to the terminal rather
+  # prompts print while xplr/fzf is suspended, so bytes go raw to the terminal rather
   # than through xplr's ansi-to-tui or fzf --ansi. An ESC in a commit subject could
   # clear the screen, set the window title, or redraw over the "Type NN to confirm"
   # line to spoof which action is being confirmed. LC_ALL=C so tr works byte-wise and

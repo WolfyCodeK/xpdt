@@ -116,7 +116,7 @@ esac
 #
 # Note the two shapes: ripgrep, bat and fzf put the version in the filename, so a
 # bump misses the lookup and is refused outright; Neovim, xplr, tree-sitter and the
-# bat theme have version-free filenames, so a bump hits the OLD key and is caught by
+# bat theme have version-free filenames, so a bump hits the old key and is caught by
 # the hash comparison instead - it reports a mismatch rather than a missing pin.
 # Either way it fails closed, but do not paste in the hash of the download that just
 # failed: re-derive it, or the provenance step is lost.
@@ -254,7 +254,7 @@ install_xplr() {
 }
 
 # --- config symlinks --------------------------------------------------------
-# Files under the config dir that hold the USER's state rather than code. They are
+# Files under the config dir that hold the user's state rather than code. They are
 # git-ignored, so a clone never carries them: without the copy below, reinstalling
 # from a different clone (or over a real ~/.config/xpdt) silently handed the user
 # factory defaults and orphaned their real settings at the old path.

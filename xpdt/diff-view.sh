@@ -29,7 +29,7 @@ XPDT_CHGPOS="$CHGPOSF"
 export XPDT_CHGPOS
 mkdir -p "$TMPD/a" "$TMPD/b"
 # Written straight to disk rather than captured into a variable first: a $(...) round
-# trip strips EVERY trailing newline, so a change that only adds blank lines produced
+# trip strips every trailing newline, so a change that only adds blank lines produced
 # two identical-looking sides and the viewer rendered no change at all. It also
 # mangles NUL bytes, and invents a trailing newline on a file that has none.
 case "$MODE" in

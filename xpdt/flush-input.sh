@@ -8,7 +8,7 @@
 #    mapping, or backing out of the / \ search (left deletes the query, then a final left
 #    at the empty query aborts). Both leave the flag file. Auto-repeat has an initial
 #    delay, so the repeats arrive *after* the program has closed - a one-shot flush runs
-#    too early and misses them. So on the flag we sit here draining LEFT-arrow repeats
+#    too early and misses them. So on the flag we sit here draining left-arrow repeats
 #    until the key is released, keeping xpdt suspended meanwhile, so it resumes only once
 #    you let go - no shooting back up through directories. Only left-arrow repeats hold
 #    the drain open: a plain tap clears in ~`quiet` seconds, and unrelated input (mouse

@@ -26,7 +26,7 @@ POSBIND=""
 POS=$(cat "$POSF" 2>/dev/null)
 [ -n "$POS" ] && POSBIND="--bind load:pos($POS)"
 BASE="$(basename "$F")"
-# The path reaches the binds through the ENVIRONMENT, not their command strings -
+# The path reaches the binds through the environment, not their command strings -
 # fzf re-parses each bind with a shell, so a single quote in a filename ("Dad's
 # list.txt") broke edit / reload / copy outright, and a crafted name executed.
 XPDT_PREVIEW_FILE="$F"

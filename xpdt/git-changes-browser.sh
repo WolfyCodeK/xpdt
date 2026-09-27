@@ -27,7 +27,7 @@ TERMH=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $1}')
 MAXFILES=20
 
 # Context line above the keys: which repo, which branch, and where inside it you
-# opened this from. The list covers the WHOLE repo, not the directory you were in, so
+# opened this from. The list covers the whole repo, not the directory you were in, so
 # without this it is easy to lose track of which repo you are acting on - particularly
 # after `w` has hopped you between sibling repos.
 #
@@ -56,7 +56,7 @@ PW=$(pv "$NENTRIES")
 # "nvim-diff-unstaged" setting on it opens with its changes shown inline against the
 # index instead (:XpdtDiff, defined in nvim/init.lua), so you review the green/red diff
 # and edit in place. Read once here; a toggle applies the next time you open the browser.
-# `--` before the path: nvim parses a leading `+` as a startup COMMAND, so a file
+# `--` before the path: nvim parses a leading `+` as a startup command, so a file
 # named `+!touch X` ran `:!touch X` on open - a filename in a cloned repo was enough.
 # open-file.sh and edit-at.sh are safe because they absolutise the path first; this is
 # the one invocation that passes a repo-relative name straight through.
@@ -68,7 +68,7 @@ UNSTAGED_OPEN="cd \"\$XPDT_ROOT\" && nvim -- {3..}"
 # an addition - so a new file previews as pure green like any other add. It exits 1 when
 # the files differ (always, here), hence the `|| true`. Tracked entries are unchanged.
 #
-# A wholly-untracked DIRECTORY is collapsed by porcelain to a single `dir/` entry, and
+# A wholly-untracked directory is collapsed by porcelain to a single `dir/` entry, and
 # --no-index on it made git resolve /dev/null relative to the directory and print
 # `error: Could not access 'dir/null'` into the preview. Those get a file listing
 # instead, which is what you actually want to see before staging a new folder.

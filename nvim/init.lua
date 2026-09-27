@@ -7,7 +7,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
     "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath,
   })
   -- Offline, firewalled, no git, read-only data dir: without this check the clone
-  -- failed silently and `require("lazy")` then threw, which aborted the REST of this
+  -- failed silently and `require("lazy")` then threw, which aborted the rest of this
   -- file. Everything xpdt-specific below (:XpdtDiff, the left-exit map, <leader>Y,
   -- diagnostics) is plain Neovim and works with no plugins at all, so it should
   -- survive a failed bootstrap.
@@ -38,7 +38,7 @@ vim.opt.breakindent = true
 -- layers the bat-matched palette (the other themes' own colorschemes already match
 -- their bat theme).
 -- The lines of xpdt's settings file, read once and shared by the three readers below.
--- pcall + readfile rather than io.open + f:lines(): io.open SUCCEEDS on a directory and
+-- pcall + readfile rather than io.open + f:lines(): io.open succeeds on a directory and
 -- the read then throws, which aborted the rest of this file. An absent or unreadable
 -- file simply reads as no settings, i.e. every default.
 local xpdt_config_lines
@@ -51,7 +51,7 @@ local function xpdt_settings()
 end
 
 local function xpdt_theme()
-  -- (%S+) not (%w+) so a hyphenated theme name would still match, and the FIRST match
+  -- (%S+) not (%w+) so a hyphenated theme name would still match, and the first match
   -- wins to agree with gate.sh's `head -n1` - keeping the last one meant a duplicated
   -- key made the settings menu and the editor disagree.
   for _, line in ipairs(xpdt_settings()) do
@@ -308,7 +308,7 @@ if xpdt_setting_on("nvim-help-bar") then
   vim.o.winbar = "%{%v:lua.xpdt_help_bar()%}"
 end
 
--- :XpdtDiff - show the current file's unstaged changes INLINE, in the one editable
+-- :XpdtDiff - show the current file's unstaged changes inline, in the one editable
 -- window (no split): added / changed lines get a sign (+ / ~) and a subtle line tint,
 -- and the removed lines appear inline as red virtual lines where they were. It is a
 -- diff against the git index recomputed live (vim.diff) as you edit, so the marks track
@@ -329,7 +329,7 @@ local function xpdt_render_inline_diff(buf)
     return
   end
   vim.api.nvim_buf_clear_namespace(buf, XPDT_DIFF_NS, 0, -1)
-  -- An index with no lines is an EMPTY file, not a file with one blank line:
+  -- An index with no lines is an empty file, not a file with one blank line:
   -- concat gives "" and the trailing "\n" then invented a line, so a file that is
   -- empty in the index showed a phantom "- " removal and a change sign instead of
   -- an add.
@@ -415,7 +415,7 @@ end
 local function xpdt_inline_diff_off(buf)
   xpdt_diff_index[buf] = nil
   xpdt_diff_hunks[buf] = nil
-  -- Closed, not just stopped: vim.defer_fn only closes its timer when it FIRES, so a
+  -- Closed, not just stopped: vim.defer_fn only closes its timer when it fires, so a
   -- cancelled debounce leaked a libuv handle and its captured closure every time -
   -- measured 7 handles growing to 57 over 50 TextChanged events, surviving both the
   -- toggle-off and a buffer wipe.
