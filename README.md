@@ -31,7 +31,7 @@ one that changes your work asks for a two-digit code first.
 - **Changes browser** (`enter`) — stage or unstage whole files or single hunks, discard, and commit. Diffs are syntax highlighted, and within a changed line the exact words that differ are picked out.
 - **Commit history** (`;`) — browse any local or remote branch, open a commit to go through its files, cherry-pick a commit onto the current branch, or undo the last one.
 - **Stash browser** (`s`) — create, apply, pop, drop and clear stashes.
-- **Search** (`/` and `\`) — find files by name, or search inside them, across the current folder or the whole repository.
+- **Search** (`/` and `\`) — find files by name, or search inside them, across the current folder or the whole repository. Symlinked folders and files are searched too.
 - **File operations** — create, rename with the current name already filled in, move by fuzzy-picking the destination, and delete to the Trash.
 - **Confirmation gate** — by default, anything that changes your files or your repository asks you to type a random two-digit code first, so a stray key cannot discard your work. Each action can be switched on or off in the settings.
 - **Neovim to match** — `→` opens a file in Neovim, at the matching line when you came from a search. An inline diff viewer steps from change to change, and intellisense is opt-in per language, so only the servers you pick are installed.

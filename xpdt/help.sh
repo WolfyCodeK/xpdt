@@ -88,6 +88,7 @@ sec() { printf "\n  ${H}%s${Z}\n" "$1"; }
   row "left" "delete back through the query; exit when it is empty"
   row "right" "open a file (\\: at the matched line), or enter a folder (/)"
   row "ctrl-o" "reveal the file in the OS file manager (Finder / Explorer)"
+  row "" "- both follow symlinks, so linked folders are searched too"
   sec "SETTINGS  (,)"
   row "enter" "toggle a setting, or pick the focused option (theme, history width)"
   row "" "- the RESET row at the bottom restores every default"
